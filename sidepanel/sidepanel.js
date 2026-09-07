@@ -43,6 +43,15 @@ async function init() {
   state = await getState();
   renderAll();
   await refreshDetection();
+
+  // 智能默认页：如果当前已经在网申表单页上（检测到字段），直接落到「一键填充」
+  if (detection) {
+    const c = detection.counts;
+    if (c.auto + c.manual + c.open > 0) {
+      document.querySelector('.tabs button[data-tab="fill"]').click();
+    }
+  }
+  updateFillBadge();
   renderFillTab();
 
   chrome.tabs.onActivated.addListener(() => scheduleRefresh(250));
@@ -89,8 +98,24 @@ async function init() {
         renderFillTab();
         scheduleRefresh(0);
       }
+      updateFillBadge();
     });
   });
+}
+
+// 标签角标：检测到可填字段时在「一键填充」标签上冒出数量，提示用户去点
+function updateFillBadge() {
+  const badge = $('#tabFillBadge');
+  if (!badge) return;
+  const fillBtn = $('#tabFillBtn');
+  const isFillActive = fillBtn.classList.contains('active');
+  const n = detection ? detection.counts.auto + detection.counts.manual + detection.counts.open : 0;
+  if (n > 0 && !isFillActive) {
+    badge.textContent = n > 99 ? '99+' : String(n);
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
 }
 
 let refreshTimer = null;
@@ -168,9 +193,11 @@ function renderFieldsTab() {
     b.className = 'card';
     b.style.borderColor = '#c7d5ff';
     b.innerHTML = `
-      <b>👋 两种用法，选适合你的：</b>
-      <div class="muted" style="margin:6px 0 2px">① <b>不用 AI（零配置）</b>：直接在下面分组里把信息填好 → 打开网申页 → 「填充」页点一键填充。</div>
-      <div class="muted" style="margin:0 0 8px">② 用 AI（可选）：右上角 ⚙ 配置任一家 API Key，解锁 PDF 自动提取和开放题起草。</div>`;
+      <b>👋 三步开始（不用 AI 也完全可用）：</b>
+      <div class="muted" style="margin:6px 0 2px">① 在下面分组里把信息填好（只填用得上的，没填的会自动跳过）</div>
+      <div class="muted" style="margin:0 0 2px">② 打开招聘网申页面</div>
+      <div class="muted" style="margin:0 0 8px">③ 点顶部「<b>一键填充</b>」标签 → 点大按钮，自动填表 ✓</div>
+      <div class="muted" style="margin:0 0 8px">可选：右上角 ⚙ 配置任一家 AI，解锁 PDF 自动提取和开放题起草。</div>`;
     const ok = document.createElement('button');
     ok.className = 'btn plain';
     ok.textContent = '知道了，开始填写';
@@ -181,6 +208,20 @@ function renderFieldsTab() {
     });
     b.appendChild(ok);
     root.appendChild(b);
+  }
+
+  // —— 下一步引导：字段库有值时，指明怎么用 ——
+  const filledN = prof.fields.filter((x) => !x.material && (x.value || '').trim()).length;
+  if (filledN > 0) {
+    const next = document.createElement('div');
+    next.className = 'nextstep';
+    next.innerHTML = `<span>✅ 已填 <b>${filledN}</b> 项。下一步：打开网申页面，到顶部「一键填充」标签点大按钮即可自动填表。</span>`;
+    const go = document.createElement('button');
+    go.className = 'btn plain';
+    go.textContent = '去一键填充 →';
+    go.addEventListener('click', () => document.querySelector('.tabs button[data-tab="fill"]').click());
+    next.appendChild(go);
+    root.prepend(next);
   }
 
   for (const g of groups) {
@@ -468,6 +509,9 @@ function renderFillTab() {
     }
     root.appendChild(card);
   }
+
+  // 角标随检测结果刷新
+  updateFillBadge();
 }
 
 function findProfileFieldByKey(prof, key) {
