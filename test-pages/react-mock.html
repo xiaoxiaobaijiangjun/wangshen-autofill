@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>受控组件 Mock（模拟 React）</title>
+<style>
+  body { font: 14px/1.6 system-ui, "Microsoft YaHei", sans-serif; max-width: 640px; margin: 40px auto; }
+  .row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+  label { flex: 0 0 90px; text-align: right; color: #555; }
+  input, textarea { flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+  #st { padding: 10px; background: #f7f9ff; border-radius: 8px; font-size: 13px; color: #555; }
+</style>
+</head>
+<body>
+<h2>受控组件模拟页</h2>
+<p>这两个输入框用「state 单向渲染」实现：如果填充脚本只改了 DOM value 而没有派发 input 事件，
+组件 state 不会更新，下一帧渲染会把值抹掉——以此模拟 React 受控组件行为。</p>
+<div class="row"><label for="name">姓名</label><input id="name" /></div>
+<div class="row"><label for="phone">手机号</label><input id="phone" /></div>
+<div class="row"><label for="city">期望工作城市</label><input id="city" /></div>
+<div id="st"></div>
+<script>
+  // —— 极简受控组件：state 是唯一数据源，渲染循环每帧把 state 写回 DOM ——
+  const controls = ['name', 'phone', 'city'].map((id) => {
+    const input = document.getElementById(id);
+    const cstate = { value: '' };
+    input.addEventListener('input', () => {
+      cstate.value = input.value; // onChange -> setState
+    });
+    return { id, input, cstate };
+  });
+
+  function render() {
+    for (const c of controls) {
+      if (c.input.value !== c.cstate.value) c.input.value = c.cstate.value; // value={state.value}
+    }
+    document.getElementById('st').textContent = '组件 state：' + JSON.stringify(
+      Object.fromEntries(controls.map((c) => [c.id, c.cstate.value])), null, 0
+    );
+    requestAnimationFrame(render);
+  }
+  render();
+
+  window.__reactMock = {
+    state: () => Object.fromEntries(controls.map((c) => [c.id, c.cstate.value])),
+    dom: () => Object.fromEntries(controls.map((c) => [c.id, c.input.value])),
+  };
+</script>
+</body>
+</html>

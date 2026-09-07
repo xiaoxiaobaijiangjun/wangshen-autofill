@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "网申自动填写助手",
+  "version": "1.2.0",
+  "description": "简历字段库 + 短字段一键自动填 + 长文本点选填 + AI 开放题起草 + 投递台账。数据只存本机。",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "网申自动填写助手",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "options_page": "options/options.html",
+  "permissions": ["storage", "sidePanel", "tabs", "downloads"],
+  "host_permissions": ["https://open.bigmodel.cn/*"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["data/templates.js", "content/detector.js", "content/filler.js", "content/floatbar.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

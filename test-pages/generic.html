@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>通用网申表单 Mock</title>
+<style>
+  body { font: 14px/1.6 system-ui, "Microsoft YaHei", sans-serif; max-width: 720px; margin: 30px auto; padding: 0 16px; color: #222; }
+  .form-item { margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .form-item label.f { flex: 0 0 110px; text-align: right; color: #555; }
+  .form-item input[type=text], .form-item select, .form-item textarea { flex: 1; padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+  textarea { min-height: 70px; }
+  fieldset { border: 1px solid #eee; border-radius: 8px; margin-bottom: 14px; }
+  .submit { background: #2f54eb; color: #fff; border: 0; padding: 10px 26px; border-radius: 8px; cursor: pointer; }
+  #result { margin-top: 16px; padding: 10px; background: #f7f9ff; border-radius: 8px; font-size: 13px; color: #555; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h2>某公司校园招聘报名表（通用 mock）</h2>
+<form id="f" onsubmit="event.preventDefault();show();">
+  <div class="form-item"><label class="f" for="name">姓名</label><input type="text" id="name" name="name" /></div>
+  <div class="form-item"><label class="f" for="phone">手机号</label><input type="text" id="phone" name="phone" /></div>
+  <div class="form-item"><label class="f" for="email">电子邮箱</label><input type="text" id="email" name="email" /></div>
+  <div class="form-item"><label class="f">性别</label>
+    <span id="genderBox">
+      <label><input type="radio" name="gender" value="male" /> 男</label>
+      <label><input type="radio" name="gender" value="female" /> 女</label>
+    </span>
+  </div>
+  <div class="form-item"><label class="f" for="school">毕业院校</label><input type="text" id="school" name="school" /></div>
+  <div class="form-item"><label class="f" for="major">专业</label><input type="text" id="major" name="major" aria-label="专业名称" /></div>
+  <div class="form-item"><label class="f" for="degree">学历</label>
+    <select id="degree" name="degree">
+      <option value="">请选择</option><option>博士</option><option>硕士</option><option>本科</option>
+    </select>
+  </div>
+  <div class="form-item"><label class="f" for="grad">预计毕业时间</label><input type="text" id="grad" name="grad" placeholder="如 2027-06" /></div>
+  <div class="form-item"><label class="f" for="city">期望工作城市</label><input type="text" id="city" name="city" /></div>
+  <div class="form-item"><label class="f" for="salary">期望薪资</label><input type="text" id="salary" name="salary" /></div>
+  <div class="form-item"><label class="f" for="github">个人主页/GitHub</label><input type="text" id="github" name="github" /></div>
+  <fieldset>
+    <legend>长文本（不应被自动填充）</legend>
+    <div class="form-item"><label class="f" for="selfEval">自我评价</label><textarea id="selfEval" name="selfEval"></textarea></div>
+    <div class="form-item"><label class="f" for="openQ">请谈谈你为什么选择我们公司，以及你的职业规划</label><textarea id="openQ" name="openQ"></textarea></div>
+  </fieldset>
+  <div class="form-item"><label class="f" for="resume">上传简历</label><input type="file" id="resume" /></div>
+  <div class="form-item"><label class="f" for="adjust">是否服从调剂</label>
+    <span><label><input type="checkbox" id="adjust" name="adjust" /> 服从</label></span>
+  </div>
+  <button type="submit" class="submit">提交报名</button>
+</form>
+<div id="result"></div>
+<script>
+  // 提交动作只用于人工查看表单值，扩展永远不应触发它
+  function show() {
+    const f = document.getElementById('f');
+    const out = {};
+    new FormData(f).forEach((v, k) => (out[k] = v));
+    document.getElementById('result').textContent = '（仅人工点提交时展示）\n' + JSON.stringify(out, null, 2);
+  }
+  window.__genericProbe = function () {
+    const v = (id) => (document.getElementById(id) || {}).value;
+    const gender = document.querySelector('input[name=gender]:checked');
+    return {
+      name: v('name'), phone: v('phone'), email: v('email'), gender: gender ? gender.value : '',
+      school: v('school'), major: v('major'), degree: v('degree'), grad: v('grad'),
+      city: v('city'), salary: v('salary'), github: v('github'),
+      selfEval: v('selfEval'), openQ: v('openQ'),
+      adjust: document.getElementById('adjust').checked,
+    };
+  };
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>网申自动填写助手</title>
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="row">
+      <select id="profileSel" title="当前档案"></select>
+      <button id="btnNewProfile" class="icon" title="新建档案">＋</button>
+      <button id="btnRenameProfile" class="icon" title="重命名当前档案">✎</button>
+      <button id="btnDelProfile" class="icon" title="删除当前档案">🗑</button>
+      <span class="spacer"></span>
+      <button id="btnRevealAll" class="icon" title="临时显示所有敏感字段（仅本窗口有效）">👁</button>
+      <button id="btnOptions" class="icon" title="设置（API Key / 阈值 / PDF 导入）">⚙</button>
+    </div>
+    <nav class="tabs">
+      <button data-tab="fields" class="active">字段库</button>
+      <button data-tab="fill">填充</button>
+      <button data-tab="ledger">台账</button>
+      <button data-tab="materials">附件</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="tab-fields"></section>
+    <section id="tab-fill" hidden></section>
+    <section id="tab-ledger" hidden></section>
+    <section id="tab-materials" hidden></section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="../data/templates.js"></script>
+  <script src="../common.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

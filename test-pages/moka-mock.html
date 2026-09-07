@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Moka 风格校招申请表 Mock</title>
+<style>
+  body { font: 14px/1.6 system-ui, "Microsoft YaHei", sans-serif; max-width: 700px; margin: 30px auto; color: #222; }
+  h1 { font-size: 18px; }
+  .job-header { background: #f5f6fa; padding: 12px 16px; border-radius: 8px; margin-bottom: 18px; }
+  .form-item { margin-bottom: 16px; }
+  .field-label { display: block; color: #666; font-size: 13px; margin-bottom: 5px; }
+  .field-label .required { color: #e5484d; }
+  .input-item { display: flex; gap: 10px; }
+  .input-item input, .input-item select, .input-item textarea {
+    flex: 1; padding: 8px 12px; border: 1px solid #d8dce6; border-radius: 4px; font: inherit; background: #fff;
+  }
+  textarea { min-height: 80px; }
+  .upload-box { border: 1px dashed #b9c0d0; border-radius: 6px; padding: 18px; text-align: center; color: #7a8499; cursor: pointer; }
+  .btn-save { background: #00b389; color: #fff; border: 0; padding: 10px 30px; border-radius: 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>校招申请表</h1>
+<div class="job-header">嵌入式软件工程师（2027 届校招）</div>
+
+<div class="form-item">
+  <label class="field-label"><span class="required">*</span>姓名</label>
+  <div class="input-item"><input type="text" name="name" class="weui-input" /></div>
+</div>
+<div class="form-item">
+  <label class="field-label"><span class="required">*</span>手机号码</label>
+  <div class="input-item"><input type="tel" name="phone" /></div>
+</div>
+<div class="form-item">
+  <label class="field-label"><span class="required">*</span>邮箱地址</label>
+  <div class="input-item"><input type="text" name="email" /></div>
+</div>
+<div class="form-item">
+  <span class="field-label"><span class="required">*</span>最高学历</span>
+  <div class="input-item">
+    <select name="degree"><option value="">请选择</option><option>硕士</option><option>本科</option><option>博士</option></select>
+  </div>
+</div>
+<div class="form-item">
+  <label class="field-label"><span class="required">*</span>毕业院校</label>
+  <div class="input-item"><input type="text" name="school" /></div>
+</div>
+<div class="form-item">
+  <label class="field-label">所学专业</label>
+  <div class="input-item"><input type="text" name="major" /></div>
+</div>
+<div class="form-item">
+  <label class="field-label">期望工作城市</label>
+  <div class="input-item"><input type="text" name="expectedCity" placeholder="多个城市用/分隔" /></div>
+</div>
+<div class="form-item">
+  <span class="field-label">上传简历附件</span>
+  <div class="upload-box" onclick="document.getElementById('fileup').click()">点击上传简历（PDF/Word，5MB 以内）</div>
+  <input type="file" id="fileup" style="display:none" />
+</div>
+<div class="form-item">
+  <span class="field-label">请介绍一下你最有挑战的一段项目经历，以及你为什么想做嵌入式方向？</span>
+  <div class="input-item"><textarea name="essay"></textarea></div>
+</div>
+<button class="btn-save" onclick="alert('（mock）保存')">保存</button>
+
+<script>
+  window.__mokaProbe = function () {
+    const g = (n) => { const el = document.querySelector(`[name="${n}"]`); return el ? el.value : null; };
+    return { name: g('name'), phone: g('phone'), email: g('email'), degree: g('degree'), school: g('school'), major: g('major'), expectedCity: g('expectedCity'), essay: g('essay') };
+  };
+</script>
+</body>
+</html>

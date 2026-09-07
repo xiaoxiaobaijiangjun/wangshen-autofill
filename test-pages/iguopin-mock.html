@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>国聘风格在线简历 Mock</title>
+<style>
+  body { font: 14px/1.6 system-ui, "Microsoft YaHei", sans-serif; max-width: 760px; margin: 30px auto; color: #222; }
+  h1 { font-size: 18px; }
+  .el-form-item { display: flex; margin-bottom: 14px; }
+  .el-form-item__label { flex: 0 0 130px; text-align: right; padding-right: 12px; color: #606266; font-size: 13px; padding-top: 7px; }
+  .el-form-item__content { flex: 1; }
+  .el-input__inner, .el-select__inner, textarea {
+    width: 100%; padding: 7px 12px; border: 1px solid #dcdfe6; border-radius: 4px; font: inherit; box-sizing: border-box; background: #fff;
+  }
+  textarea { min-height: 70px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  th, td { border: 1px solid #ebeef5; padding: 6px 8px; font-size: 13px; text-align: center; }
+  th { background: #f7f8fa; color: #606266; }
+  .btn { background: #c8102e; color: #fff; border: 0; padding: 9px 26px; border-radius: 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>在线申请表（国聘 mock）</h1>
+
+<div class="el-form-item"><label class="el-form-item__label">姓名</label><div class="el-form-item__content"><input class="el-input__inner" id="xm" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">性别</label><div class="el-form-item__content">
+  <select class="el-select__inner" id="xb"><option value="">请选择</option><option>男</option><option>女</option></select>
+</div></div>
+<div class="el-form-item"><label class="el-form-item__label">出生年月</label><div class="el-form-item__content"><input class="el-input__inner" id="csny" placeholder="如 2003-06" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">民族</label><div class="el-form-item__content"><input class="el-input__inner" id="mz" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">籍贯</label><div class="el-form-item__content"><input class="el-input__inner" id="jg" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">政治面貌</label><div class="el-form-item__content">
+  <select class="el-select__inner" id="zzmm"><option value="">请选择</option><option>中共党员</option><option>中共预备党员</option><option>共青团员</option><option>群众</option></select>
+</div></div>
+<div class="el-form-item"><label class="el-form-item__label">手机号码</label><div class="el-form-item__content"><input class="el-input__inner" id="sj" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">电子邮箱</label><div class="el-form-item__content"><input class="el-input__inner" id="yx" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">毕业院校</label><div class="el-form-item__content"><input class="el-input__inner" id="byyx" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">专业</label><div class="el-form-item__content"><input class="el-input__inner" id="zy" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">英语四级(CET-4)成绩</label><div class="el-form-item__content"><input class="el-input__inner" id="cet4" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">英语六级(CET-6)成绩</label><div class="el-form-item__content"><input class="el-input__inner" id="cet6" /></div></div>
+<div class="el-form-item"><label class="el-form-item__label">计算机等级</label><div class="el-form-item__content"><input class="el-input__inner" id="jsjdj" placeholder="如 计算机二级" /></div></div>
+
+<fieldset style="border:1px solid #ebeef5;border-radius:6px">
+  <legend style="color:#606266;font-size:13px">家庭成员情况（表格行内 label）</legend>
+  <table>
+    <tr><th>称谓</th><th>姓名</th><th>工作单位及职务</th></tr>
+    <tr><td>父亲</td><td><input id="f1n" style="width:90%;border:1px solid #eee;padding:4px" /></td><td><input id="f1w" style="width:95%;border:1px solid #eee;padding:4px" /></td></tr>
+    <tr><td>母亲</td><td><input id="f2n" style="width:90%;border:1px solid #eee;padding:4px" /></td><td><input id="f2w" style="width:95%;border:1px solid #eee;padding:4px" /></td></tr>
+  </table>
+</fieldset>
+
+<div class="el-form-item"><label class="el-form-item__label">奖惩情况</label><div class="el-form-item__content"><textarea id="jcqk"></textarea></div></div>
+<div class="el-form-item"><label class="el-form-item__label">个人陈述</label><div class="el-form-item__content"><textarea id="grcs" placeholder="请谈谈你的职业规划与求职意向"></textarea></div></div>
+<div class="el-form-item"><label class="el-form-item__label">上传成绩单</label><div class="el-form-item__content"><input type="file" /></div></div>
+<button class="btn" onclick="alert('（mock）提交')">提交</button>
+
+<script>
+  window.__iguopinProbe = function () {
+    const v = (id) => document.getElementById(id).value;
+    return {
+      name: v('xm'), gender: v('xb'), birth: v('csny'), ethnic: v('mz'), hometown: v('jg'),
+      political: v('zzmm'), phone: v('sj'), email: v('yx'), school: v('byyx'), major: v('zy'),
+      cet4: v('cet4'), cet6: v('cet6'), computer: v('jsjdj'),
+      fatherName: v('f1n'), fatherWork: v('f1w'), motherName: v('f2n'), motherWork: v('f2w'),
+      reward: v('jcqk'), statement: v('grcs'),
+    };
+  };
+</script>
+</body>
+</html>

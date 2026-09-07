@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>网申自动填写助手 · 设置</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>网申自动填写助手 · 设置</h1>
+    <div id="toast" class="toast"></div>
+
+    <section class="card">
+      <h2>① 智谱 GLM API</h2>
+      <div class="row">
+        <label class="lbl">API Key</label>
+        <input type="password" id="apiKey" placeholder="在智谱开放平台 https://open.bigmodel.cn 创建" autocomplete="off" />
+        <button id="btnRevealKey" class="btn ghost">显示</button>
+      </div>
+      <div class="row">
+        <label class="lbl">模型 ID</label>
+        <input type="text" id="model" placeholder="glm-5.3-flash" />
+        <button id="btnTestKey" class="btn plain">测试连接</button>
+        <span id="testResult" class="muted"></span>
+      </div>
+      <p class="muted">服务商固定为智谱（open.bigmodel.cn）。Key 只保存在本机 chrome.storage.local，不进代码、不上传其他服务器。PDF 视觉提取按页计费，文本模式优先。</p>
+    </section>
+
+    <section class="card">
+      <h2>② 填充设置</h2>
+      <div class="row">
+        <label class="lbl">自动填充阈值</label>
+        <input type="range" id="autoThreshold" min="0.5" max="1" step="0.05" />
+        <span id="thresholdVal" class="badge"></span>
+        <span class="muted">label 与同义词表匹配得分 ≥ 阈值才自动填（调低更激进，调高更保守）</span>
+      </div>
+      <div class="row">
+        <label class="lbl">隐私遮挡</label>
+        <label><input type="checkbox" id="privacyMask" /> 敏感字段（手机号/身份证/薪资/家庭成员等）在侧边栏显示 ••••，点眼睛可见</label>
+      </div>
+      <div class="row">
+        <label class="lbl">自动浮条</label>
+        <label><input type="checkbox" id="autoFloatbar" /> 检测到网申表单时在页面右下角显示浮条</label>
+      </div>
+    </section>
+
+    <section class="card" id="pdfCard">
+      <h2>③ 简历 PDF 导入</h2>
+      <div class="row">
+        <input type="file" id="pdfFile" accept="application/pdf,.pdf" />
+        <button id="btnExtract" class="btn">开始提取</button>
+      </div>
+      <div id="pdfStatus" class="muted" style="margin-top:8px"></div>
+      <div id="pdfReview"></div>
+      <div class="row" id="importRow" style="display:none">
+        <label class="lbl">导入到档案</label>
+        <select id="targetProfile"></select>
+        <button id="btnImport" class="btn">确认导入勾选字段</button>
+      </div>
+      <p class="muted">流程：PDF → pdf.js 抽文本 → 不足 200 字或乱码率超 30% 自动改走 GLM 视觉模式（逐页）→ 提取结果先进入上方校对区，人工确认后才写入档案。禁止跳过校对直接入库。</p>
+    </section>
+
+    <section class="card">
+      <h2>④ 模板管理</h2>
+      <div id="tplList"></div>
+      <p class="muted">全字段模板（互联网 + 央国企合并，51 字段）：新建档案（侧边栏顶部「＋」）默认带全部字段，有值就填、没值自动跳过；字段可在档案里随意增删改。</p>
+    </section>
+
+    <section class="card">
+      <h2>⑤ 数据与隐私</h2>
+      <div class="row">
+        <button id="btnBackup" class="btn plain">导出档案备份（JSON）</button>
+        <button id="btnRestore" class="btn ghost">从备份恢复</button>
+        <input type="file" id="backupFile" accept="application/json,.json" style="display:none" />
+      </div>
+      <p class="muted" id="backupMsg">备份包含全部档案和字段值，<b>不含 API Key</b>。换电脑或重装浏览器前建议先导出。</p>
+      <p class="muted">
+        所有简历数据、档案、台账只存在本机浏览器的 chrome.storage.local 中；唯一的对外网络请求是你主动触发的
+        智谱 AI 调用（内容：简历文本或题目+素材段落），请求只发往 open.bigmodel.cn。
+        插件永不自动点击任何「提交/投递」类按钮，最后一步永远由你本人操作。
+      </p>
+    </section>
+  </div>
+
+  <script src="../libs/pdfjs/pdf.min.js"></script>
+  <script src="../data/templates.js"></script>
+  <script src="../common.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

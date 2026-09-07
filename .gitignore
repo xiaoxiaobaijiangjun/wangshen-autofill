@@ -1,0 +1,13 @@
+# 本地运行产物
+.verify-run.log
+*.log
+.edge-test-profile/
+.edge-dbg/
+dist/
+
+# 内部施工文档（含个人信息，不入库）
+执行文档.md
+
+# 系统杂物
+Thumbs.db
+.DS_Store
