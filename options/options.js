@@ -14,26 +14,49 @@ async function init() {
   state = await getState();
   pdfjsLib.GlobalWorkerOptions.workerSrc = chrome.runtime.getURL('libs/pdfjs/pdf.worker.min.js');
 
-  $('#apiKey').value = state.settings.apiKey || '';
-  $('#model').value = state.settings.model || 'glm-5.3-flash';
+  // —— AI 服务商区（可选功能） ——
+  const PROV = WangshenTemplates.PROVIDERS;
+  const provSel = $('#provider');
+  for (const [id, p] of Object.entries(PROV)) provSel.appendChild(new Option(p.name, id));
+  provSel.value = state.settings.provider || 'zhipu';
+  refreshProviderUI();
+  provSel.addEventListener('change', () => {
+    state.settings.provider = provSel.value;
+    save();
+    refreshProviderUI();
+  });
+  $('#customBase').addEventListener('change', () => {
+    state.settings.customBase = $('#customBase').value.trim();
+    save();
+    requestCustomPermission();
+  });
+  $('#apiKey').value = (state.settings.apiKeys || {})[state.settings.provider] || '';
+  $('#apiKey').addEventListener('change', () => {
+    state.settings.apiKeys = state.settings.apiKeys || {};
+    state.settings.apiKeys[state.settings.provider] = $('#apiKey').value.trim();
+    save();
+  });
+  $('#model').value = state.settings.model || '';
+  $('#model').addEventListener('change', () => {
+    state.settings.model = $('#model').value.trim();
+    save();
+  });
+  $('#visionModel').value = state.settings.visionModel || '';
+  $('#visionModel').addEventListener('change', () => {
+    state.settings.visionModel = $('#visionModel').value.trim();
+    save();
+  });
+
   $('#autoThreshold').value = state.settings.autoThreshold;
   $('#thresholdVal').textContent = Number(state.settings.autoThreshold).toFixed(2);
   $('#privacyMask').checked = state.settings.privacyMask !== false;
   $('#autoFloatbar').checked = state.settings.autoFloatbar !== false;
 
-  $('#apiKey').addEventListener('change', () => {
-    state.settings.apiKey = $('#apiKey').value.trim();
-    save();
-  });
   $('#btnRevealKey').addEventListener('click', () => {
     const k = $('#apiKey');
     const show = k.type === 'password';
     k.type = show ? 'text' : 'password';
     $('#btnRevealKey').textContent = show ? '隐藏' : '显示';
-  });
-  $('#model').addEventListener('change', () => {
-    state.settings.model = $('#model').value.trim() || 'glm-5.3-flash';
-    save();
   });
   $('#btnTestKey').addEventListener('click', testConnection);
   $('#autoThreshold').addEventListener('input', () => {
@@ -62,6 +85,43 @@ async function init() {
 
   renderTemplates();
   renderTargetProfiles();
+}
+
+// 服务商切换后：刷新 Key/模型/提示，并在自定义服务商时请求域名授权
+function refreshProviderUI() {
+  const providerId = state.settings.provider || 'zhipu';
+  const p = WangshenTemplates.PROVIDERS[providerId] || WangshenTemplates.PROVIDERS.zhipu;
+  $('#apiKey').value = (state.settings.apiKeys || {})[providerId] || '';
+  const modelInput = $('#model');
+  modelInput.value = state.settings.model || '';
+  modelInput.placeholder = p.models[0] || '服务商模型 ID';
+  const vmInput = $('#visionModel');
+  vmInput.value = state.settings.visionModel || '';
+  vmInput.placeholder = p.visionModels[0] ? '如 ' + p.visionModels[0] + '（留空=用主模型）' : '留空 = 用主模型';
+  const ml = $('#modelList');
+  ml.innerHTML = '';
+  (p.models || []).forEach((m) => ml.appendChild(new Option(m, m)));
+  const vl = $('#visionList');
+  vl.innerHTML = '';
+  (p.visionModels || []).forEach((m) => vl.appendChild(new Option(m, m)));
+  $('#providerNote').textContent = p.note || '';
+  $('#customBaseRow').style.display = providerId === 'custom' ? '' : 'none';
+  $('#customBase').value = state.settings.customBase || '';
+}
+
+function requestCustomPermission() {
+  const base = (state.settings.customBase || '').trim();
+  if (!base) return;
+  let origin;
+  try {
+    origin = new URL(base).origin + '/*';
+  } catch (e) {
+    return toastMsg('接口地址格式不对，请填完整 URL', 'err');
+  }
+  chrome.permissions.request({ origins: [origin] }, (granted) => {
+    if (granted) toastMsg('已授权访问 ' + origin, 'ok');
+    else toastMsg('未授权该域名，AI 请求会被浏览器拦截', 'err');
+  });
 }
 
 function save() {

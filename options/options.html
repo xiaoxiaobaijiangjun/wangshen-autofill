@@ -11,19 +11,35 @@
     <div id="toast" class="toast"></div>
 
     <section class="card">
-      <h2>① 智谱 GLM API</h2>
+      <h2>① AI 服务（可选，不用 AI 可整节跳过）</h2>
+      <p class="muted" style="margin-top:-4px">不配置 AI 完全不影响使用：直接在侧边栏「字段库」手动录入，核心的一键填充零配置可用。AI 只用来加速两件事：简历 PDF 自动提取、开放题起草。</p>
+      <div class="row">
+        <label class="lbl">服务商</label>
+        <select id="provider"></select>
+      </div>
+      <div class="row" id="customBaseRow" style="display:none">
+        <label class="lbl">接口地址</label>
+        <input type="text" id="customBase" placeholder="https://xx.com/v1（OpenAI 兼容，不含 /chat/completions）" />
+      </div>
       <div class="row">
         <label class="lbl">API Key</label>
-        <input type="password" id="apiKey" placeholder="在智谱开放平台 https://open.bigmodel.cn 创建" autocomplete="off" />
+        <input type="password" id="apiKey" placeholder="在所选服务商官网创建" autocomplete="off" />
         <button id="btnRevealKey" class="btn ghost">显示</button>
       </div>
       <div class="row">
-        <label class="lbl">模型 ID</label>
-        <input type="text" id="model" placeholder="glm-5.3-flash" />
+        <label class="lbl">主模型</label>
+        <input type="text" id="model" list="modelList" />
+        <datalist id="modelList"></datalist>
         <button id="btnTestKey" class="btn plain">测试连接</button>
         <span id="testResult" class="muted"></span>
       </div>
-      <p class="muted">服务商固定为智谱（open.bigmodel.cn）。Key 只保存在本机 chrome.storage.local，不进代码、不上传其他服务器。PDF 视觉提取按页计费，文本模式优先。</p>
+      <div class="row">
+        <label class="lbl">视觉模型</label>
+        <input type="text" id="visionModel" list="visionList" />
+        <datalist id="visionList"></datalist>
+      </div>
+      <p class="muted" id="providerNote"></p>
+      <p class="muted">主模型处理普通 PDF（pdf.js 本地抽出文字，纯文本模型即可）和开放题起草；<b>视觉模型只在扫描件 PDF 时用到</b>，留空 = 用主模型。纯文本模型读不了扫描件是物理限制（页面本质是照片），不是插件限制。</p>
     </section>
 
     <section class="card">

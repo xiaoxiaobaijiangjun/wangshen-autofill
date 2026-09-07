@@ -40,12 +40,14 @@ node tools/package.js
 · 多档案切换（互联网/央国企全字段 51 项模板）、敏感信息 •••• 遮挡
 · 投递台账自动记录、导出 CSV
 · 检测到上传控件时提醒该传哪份材料
+· AI 可选可换：智谱 / DeepSeek / Kimi / 通义 / OpenAI / 硅基流动 / OpenRouter / 自定义 OpenAI 兼容接口
 
 隐私：所有数据只存本机浏览器，不上传任何服务器；AI 功能仅在你主动点击时
-把简历文本/题目素材发送到智谱开放平台(open.bigmodel.cn)。插件永不自动点击
+把简历文本/题目素材发送到你在设置页选择的服务商。插件永不自动点击
 "提交/投递"按钮，最后一步永远由你本人确认。
 
-需要自备智谱 API Key（open.bigmodel.cn 免费注册领取）。
+不用 AI 也完全可用：手动填好字段库即可一键填充。
+AI 需自备所选服务商的 API Key（如智谱 open.bigmodel.cn 免费注册）。
 ```
 
 ### 权限用途说明（审核员可能要求逐条解释，提前备好）
@@ -56,7 +58,10 @@ node tools/package.js
 · tabs：读取当前活动标签页的 URL/标题，用于平台识别（Moka/国聘/通用）与投递台账记录。
 · storage：本地保存简历字段库、档案、设置与台账，数据不出本机。
 · downloads：仅用于把用户点击导出的台账 CSV / 档案备份 JSON 保存到本地。
-· host_permissions open.bigmodel.cn：唯一的对外请求，用户主动触发的智谱 AI 调用。
+· host_permissions（各大模型服务商域名）：用户主动触发的 AI 调用（可选功能），
+  发往用户在设置中选择的服务商；不使用 AI 则这些域名不会有任何请求。
+· optional_host_permissions（https://*/*）：仅当用户选择"自定义 AI 接口地址"时，
+  浏览器弹出对该域名的运行时授权，用户拒绝则不发起请求。
 · sidePanel：侧边栏界面本体。
 ```
 

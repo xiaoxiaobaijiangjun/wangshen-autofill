@@ -10,8 +10,9 @@ Manifest V3 浏览器扩展（Edge / Chrome 通用，原生 JavaScript、零构�
 - **框架兼容**：绕过 React 受控组件的 value tracker，Vue/select/radio/checkbox/contenteditable 都能填
 - **平台增强**：Moka（mokahr.com）、国聘（iguopin.com）定制识别；其余网站走通用启发式；手机号 +86 区号框、家庭成员表格、验证码控件自动避让
 - **下拉框智能匹配**：`CET-4` ↔ `四级`、`共青团员` ↔ `团员`、`硕士` ↔ `研究生` 等同义写法自动对上
-- **简历 PDF 导入**：pdf.js 本地抽文本 → 文本过少/乱码自动转 GLM 视觉模式（逐页）→ 提取结果先进入**人工校对界面**，勾选确认后才入库
-- **开放题 AI 起草**：用档案里的自我介绍/项目/动机素材生成 ≤350 字草稿，保留最近 3 版历史，确认后才落表（需自备智谱 API Key）
+- **简历 PDF 导入**：pdf.js 本地抽文本 → AI 按固定 schema 提取 → 人工校对后入库；文本过少/乱码（扫描件）自动转视觉模型逐页识别，纯文本模型即可覆盖普通 PDF
+- **开放题 AI 起草**：用档案里的自我介绍/项目/动机素材生成 ≤350 字草稿，保留最近 3 版历史，确认后才落表
+- **多 AI 服务商**：智谱 / DeepSeek / Kimi / 通义千问 / OpenAI / 硅基流动 / OpenRouter / 自定义 OpenAI 兼容接口任选；主模型 + 视觉模型分开配置，Key 按服务商分别保存
 - **多档案**：全字段模板 51 项（基本信息/教育/意向/政治面貌/家庭成员/四六级/奖惩…），有值就填、没值跳过；支持 JSON 备份导出/恢复
 - **投递台账**：每次填充自动记录（公司/系统/URL/时间/数量），一键导出 UTF-8 BOM CSV（Excel 打开不乱码）
 - **隐私遮挡**：手机号/身份证/薪资/家庭成员等敏感字段默认 `••••`，点眼睛可见
@@ -21,7 +22,9 @@ Manifest V3 浏览器扩展（Edge / Chrome 通用，原生 JavaScript、零构�
 
 1. 下载本仓库（Code → Download ZIP 解压，或 `git clone`）
 2. Edge 地址栏打开 `edge://extensions` → 打开「开发人员模式」→「加载解压缩的扩展」→ 选择本目录（`manifest.json` 所在层）
-3. 固定工具栏图标；点侧边栏右上角 ⚙ 填入智谱 API Key（[open.bigmodel.cn](https://open.bigmodel.cn) 免费注册）
+3. 固定工具栏图标。**到这里就能用了**——在「字段库」手动填好信息，去网申页一键填充，全程不需要任何 API Key
+
+> **AI 是可选加速器**：想用 PDF 自动提取 / 开放题起草时，再点侧边栏 ⚙ 配置任一家 AI 服务商（智谱 / DeepSeek / Kimi / 通义 / OpenAI / 硅基流动 / OpenRouter / 自定义 OpenAI 兼容接口）。普通 PDF 用纯文本模型即可，只有扫描件 PDF 才需要配一个视觉模型。
 
 > Chrome 同理：`chrome://extensions` → 开发人员模式 → 加载已解压的扩展程序。
 
@@ -35,7 +38,7 @@ Manifest V3 浏览器扩展（Edge / Chrome 通用，原生 JavaScript、零构�
 ## 数据与隐私
 
 - 简历字段、档案、台账、草稿**全部只存在本机** `chrome.storage.local`，卸载扩展即彻底删除；插件没有服务器、没有统计埋点
-- 唯一的对外请求是你**主动触发**的智谱 AI 调用（PDF 提取发简历文本、开放题起草发题目+素材），只发往 `open.bigmodel.cn`；不用 AI 功能则零联网请求
+- 唯一的对外请求是你**主动触发**的 AI 调用（PDF 提取发简历文本、开放题起草发题目+素材），发往你在设置页选择的服务商（智谱 / DeepSeek / Kimi / 通义 / OpenAI / 硅基流动 / OpenRouter，或自定义 OpenAI 兼容地址）；不用 AI 功能则零联网请求
 - 附件清单只登记文件名和备注，不读取文件本体
 - 完整政策见 [store/PRIVACY.md](store/PRIVACY.md)
 
@@ -68,6 +71,9 @@ libs/pdfjs/              pdf.js 3.11.174（vendor，离线可用）
 test-pages/              mock 表单（generic / react / moka / iguopin / fake-scan.pdf）
 store/                   Edge 商店上架材料（步骤文案 + 隐私政策）
 tools/                   图标生成 / 打包 / 自动化验收
+tools/dev-https-server.py + dev-proxy.js + test-cert.pem
+                         验收的本地 HTTPS mock 服务器与转发代理（Edge 152.0.4191.66 起
+                         --host-resolver-rules 失效，改用 --proxy-server + 自签证书）
 ```
 
 ## 路线图

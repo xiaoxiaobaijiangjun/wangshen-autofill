@@ -296,9 +296,11 @@
     return {
       schemaVersion: 1,
       migratedFullFields: true,
+      onboardingDone: false,
       settings: {
-        apiKey: '',
-        model: 'glm-5.3-flash',
+        apiKeys: {},
+        model: '',
+        visionModel: '',
         autoThreshold: 0.85,
         privacyMask: true,
         autoFloatbar: true,
@@ -311,17 +313,78 @@
     };
   }
 
+  // 设置字段补全（多服务商迁移，幂等）：老数据里的单 apiKey 迁到 apiKeys.zhipu
+  function normalizeSettings(state) {
+    const s = state.settings || (state.settings = {});
+    let changed = false;
+    if (!s.provider) { s.provider = 'zhipu'; changed = true; }
+    if (!s.apiKeys) {
+      s.apiKeys = {};
+      if (s.apiKey) s.apiKeys.zhipu = s.apiKey;
+      delete s.apiKey;
+      changed = true;
+    }
+    if (typeof s.visionModel !== 'string') { s.visionModel = ''; changed = true; }
+    return changed;
+  }
+
+  // ============ AI 服务商预设（全部 OpenAI /chat/completions 兼容） ============
+  // visionDefault: 该家"主模型"默认是否带视觉（决定扫描件回退能不能直接用主模型）
+  const PROVIDERS = {
+    zhipu: {
+      name: '智谱 GLM', baseUrl: 'https://open.bigmodel.cn/api/paas/v4', visionDefault: true,
+      models: ['glm-5.3-flash', 'glm-4.5-air', 'glm-4.5', 'glm-4v-plus'],
+      visionModels: ['glm-4v-plus'], note: 'open.bigmodel.cn 免费注册，新用户送额度',
+    },
+    deepseek: {
+      name: 'DeepSeek', baseUrl: 'https://api.deepseek.com', visionDefault: false,
+      models: ['deepseek-chat', 'deepseek-reasoner'], visionModels: [],
+      note: '无视觉模型：普通 PDF 可用，扫描件请换别家',
+    },
+    moonshot: {
+      name: '月之暗面 Kimi', baseUrl: 'https://api.moonshot.cn/v1', visionDefault: false,
+      models: ['kimi-k2-turbo-preview', 'kimi-k2-preview'], visionModels: ['moonshot-v1-8k-vision-preview'],
+      note: '扫描件需把视觉模型设为 moonshot-v1-8k-vision-preview',
+    },
+    qwen: {
+      name: '阿里通义千问', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', visionDefault: false,
+      models: ['qwen-plus', 'qwen-max', 'qwen-turbo'], visionModels: ['qwen-vl-max', 'qwen-vl-plus'],
+      note: '扫描件需把视觉模型设为 qwen-vl-max / qwen-vl-plus',
+    },
+    openai: {
+      name: 'OpenAI', baseUrl: 'https://api.openai.com/v1', visionDefault: true,
+      models: ['gpt-4o-mini', 'gpt-4o'], visionModels: ['gpt-4o-mini', 'gpt-4o'],
+      note: '主模型自带视觉，扫描件可直接用',
+    },
+    siliconflow: {
+      name: '硅基流动', baseUrl: 'https://api.siliconflow.cn/v1', visionDefault: false,
+      models: ['deepseek-ai/DeepSeek-V3', 'Qwen/Qwen2.5-72B-Instruct'], visionModels: ['Qwen/Qwen2.5-VL-72B-Instruct'],
+      note: '聚合平台，视觉模型选 Qwen/Qwen2.5-VL 系列',
+    },
+    openrouter: {
+      name: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', visionDefault: false,
+      models: ['openai/gpt-4o-mini', 'anthropic/claude-3.5-sonnet'], visionModels: ['openai/gpt-4o-mini'],
+      note: '聚合平台，一个 Key 调多家模型',
+    },
+    custom: {
+      name: '自定义（OpenAI 兼容）', baseUrl: '', visionDefault: true, models: [], visionModels: [],
+      note: '填兼容 OpenAI /chat/completions 的接口地址；保存时会请求该域名的访问授权',
+    },
+  };
+
   global.WangshenTemplates = {
     SYNONYMS,
     TEMPLATES,
     SHORT_FORM_TEMPLATE,
     SOE_LONG_TEMPLATE,
+    PROVIDERS,
     FIELD_INDEX,
     normalizeLabel,
     matchLabel,
     makeId,
     makeProfile,
     upgradeProfile,
+    normalizeSettings,
     defaultState,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : typeof self !== 'undefined' ? self : this);

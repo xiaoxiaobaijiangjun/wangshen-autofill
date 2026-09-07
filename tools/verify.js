@@ -9,6 +9,7 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
 const HTTP_PORT = 8321;
+const PROXY_PORT = 8399;
 const CDP_PORT = 9222;
 const PROFILE_BASE = path.join(ROOT, '.edge-test-profile');
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
@@ -104,6 +105,7 @@ class CDP {
 async function launchEdge(cdp, profileDir) {
   const ports = [CDP_PORT, CDP_PORT + 1, CDP_PORT + 2];
   let lastErr = null;
+  freeCdpPorts();
   for (const port of ports) {
     const args = [
       '--user-data-dir=' + profileDir,
@@ -112,9 +114,10 @@ async function launchEdge(cdp, profileDir) {
       '--no-first-run',
       '--no-default-browser-check',
       '--edge-skip-compat-layer-relaunch', // 防止 Edge 自我重启导致 kill 失效、CDP 状态错乱
+      '--ignore-certificate-errors',
       '--disable-features=DisableLoadExtensionCommandLineSwitch',
       '--load-extension=' + ROOT,
-      '--host-resolver-rules=MAP app.mokahr.com 127.0.0.1,MAP www.iguopin.com 127.0.0.1',
+      '--proxy-server=http://127.0.0.1:' + (PROXY_PORT),
       'about:blank',
     ];
     const edge = spawn(EDGE, args, { stdio: 'ignore', detached: false });
@@ -133,9 +136,10 @@ async function launchEdge(cdp, profileDir) {
     } catch (e) {
       lastErr = e;
       step(`port ${port} failed (${e.message.slice(0, 50)}), retry next port`);
-      try { edge.kill(); } catch (x) {}
+      killEdgeTree(edge);
       await sleep(1500);
       killLeftoverEdge(profileDir);
+      freeCdpPorts();
       await sleep(1000);
     }
   }
@@ -145,7 +149,8 @@ async function launchEdge(cdp, profileDir) {
 async function findExtId(cdp) {
   return waitFor('扩展 service worker', async () => {
     const targets = await cdp.list();
-    const sw = targets.find((t) => t.type === 'service_worker' && /chrome-extension:\/\/([a-p]+)\//.test(t.url));
+    // 按 background.js 精确匹配本扩展的 SW：列表里可能混有 Edge 组件扩展
+    const sw = targets.find((t) => t.type === 'service_worker' && /\/background\.js$/.test(t.url));
     return sw ? sw.url.match(/chrome-extension:\/\/([a-p]+)\//)[1] : null;
   }, 20000);
 }
@@ -189,6 +194,63 @@ function killLeftoverEdge(dirPattern) {
   spawnSync('powershell', ['-NoProfile', '-Command', ps], { stdio: 'ignore' });
 }
 
+function killPid(pid) {
+  spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
+}
+
+// 找出监听指定端口的进程并强杀：被杀 Edge 的孤儿 renderer 会继承监听 socket，
+// 命令行里没有 profile 路径，按 profile 清理抓不到它们
+function freeCdpPorts() {
+  const r = spawnSync('netstat', ['-ano', '-p', 'tcp'], { encoding: 'utf8' });
+  const pids = new Set();
+  for (const line of (r.stdout || '').split('\n')) {
+    for (const p of [CDP_PORT, CDP_PORT + 1, CDP_PORT + 2]) {
+      if (line.includes(':' + p + ' ') && /LISTENING/i.test(line)) {
+        const pid = parseInt(line.trim().split(/\s+/).pop(), 10);
+        if (pid) pids.add(pid);
+      }
+    }
+  }
+  for (const pid of pids) killPid(pid);
+  return pids.size;
+}
+
+// 清理本地 mock 服务器端口残留（dev-https-server / dev-proxy 上次运行可能没退干净）
+function freeServerPorts() {
+  const r = spawnSync('netstat', ['-ano', '-p', 'tcp'], { encoding: 'utf8' });
+  const pids = new Set();
+  const lines = (r.stdout || '').split('\n');
+  for (const line of lines) {
+    for (const p of [HTTP_PORT, PROXY_PORT]) {
+      if (line.includes(':' + p + ' ') && /LISTENING/i.test(line)) {
+        const pid = parseInt(line.trim().split(/\s+/).pop(), 10);
+        if (pid) pids.add(pid);
+      }
+    }
+  }
+  for (const pid of pids) killPid(pid);
+}
+
+// Edge 浏览器进程必须树杀，否则 renderer 孤儿继续占着 CDP 端口
+function killEdgeTree(edge) {
+  if (edge && edge.pid) killPid(edge.pid);
+}
+
+// 等待页面真正加载完成（readyState + 页面探针函数存在），替代固定 sleep
+async function waitPageReady(cdp, targetId, probeExpr, timeoutMs) {
+  const h = await attachEval(cdp, targetId);
+  await waitFor('page ready', async () => {
+    try {
+      const s = await h.eval(`JSON.stringify({r: document.readyState, p: !!(${probeExpr})})`);
+      const o = JSON.parse(s);
+      return o.r === 'complete' && o.p;
+    } catch (e) {
+      return false;
+    }
+  }, timeoutMs || 15000);
+  return h;
+}
+
 async function cleanupProfile(dir) {
   for (let i = 0; i < 4; i++) {
     try {
@@ -211,7 +273,9 @@ async function main() {
   const profileDir = PROFILE_BASE;
   killLeftoverEdge(profileDir);
   await cleanupProfile(profileDir);
-  const httpSrv = spawn('python', ['-m', 'http.server', String(HTTP_PORT)], { cwd: ROOT, stdio: 'ignore' });
+  freeServerPorts();
+  const httpSrv = spawn('python', ['tools/dev-https-server.py', String(HTTP_PORT)], { cwd: ROOT, stdio: 'ignore' });
+  const proxySrv = spawn('node', ['tools/dev-proxy.js', String(PROXY_PORT), String(HTTP_PORT)], { cwd: ROOT, stdio: 'ignore' });
   await sleep(900);
 
   const cdp = new CDP(CDP_PORT);
@@ -224,11 +288,19 @@ async function main() {
     report('阶段0: 扩展在 Edge 加载成功（发现 service worker）', !!extId, 'id=' + extId);
     if (!extId) throw new Error('扩展未加载，后续无法进行');
 
-    const swTargets = () => cdp.list().then((l) => l.find((t) => t.type === 'service_worker'));
+    const swTargets = () => cdp.list().then((l) => l.find((t) => t.type === 'service_worker' && /\/background\.js$/.test(t.url)));
     const swT = await waitFor('SW target', swTargets, 10000);
     const swH = await attachEval(cdp, swT.id);
-    const ver = await swH.eval('chrome.runtime.getManifest().version');
-    report('阶段0: background service worker 可执行', ver === '1.2.0', 'version=' + ver);
+    // SW 目标可能先于脚本上下文就绪出现，eval 需重试
+    const ver = await waitFor('SW 上下文就绪', async () => {
+      try {
+        const v = await swH.eval('typeof chrome === "object" ? chrome.runtime.getManifest().version : ""');
+        return /^1\./.test(v) ? v : null;
+      } catch (e) {
+        return null;
+      }
+    }, 15000);
+    report('阶段0: background service worker 可执行', ver === '1.3.0', 'version=' + ver);
 
     // ---------- 阶段 1：字段库 ----------
     step('打开侧边栏页面…');
@@ -274,8 +346,9 @@ async function main() {
 
     // ---------- 阶段 2：通用填充引擎 ----------
     step('打开 generic mock 页并检测…');
-    const gT = await cdp.createTarget(`http://127.0.0.1:${HTTP_PORT}/test-pages/generic.html`);
+    const gT = await cdp.createTarget(`https://127.0.0.1:${HTTP_PORT}/test-pages/generic.html`);
     await activateAndWait(cdp, gT);
+    await waitPageReady(cdp, gT, "typeof window.__genericProbe === 'function'");
     const det = await sp.eval('WSA.refresh()');
     report('阶段2: generic 页检测（平台=generic，可自动填 ≥8）', det && det.platform === 'generic' && det.counts.auto >= 8,
       `platform=${det && det.platform} auto=${det && det.counts.auto} manual=${det && det.counts.manual} open=${det && det.counts.open}`);
@@ -301,8 +374,9 @@ async function main() {
 
     // React 受控组件模拟页
     step('React mock 页…');
-    const rT = await cdp.createTarget(`http://127.0.0.1:${HTTP_PORT}/test-pages/react-mock.html`);
+    const rT = await cdp.createTarget(`https://127.0.0.1:${HTTP_PORT}/test-pages/react-mock.html`);
     await activateAndWait(cdp, rT);
+    await waitPageReady(cdp, rT, "typeof window.__reactMock === 'object'");
     await sp.eval('WSA.refresh()');
     await sp.eval('WSA.autoFill()');
     await sleep(400);
@@ -315,8 +389,9 @@ async function main() {
     // ---------- 阶段 3：平台适配 ----------
     step('Moka mock 页…');
     // Moka（域名映射 app.mokahr.com → 127.0.0.1）
-    const mT = await cdp.createTarget(`http://app.mokahr.com:${HTTP_PORT}/test-pages/moka-mock.html`);
+    const mT = await cdp.createTarget(`https://app.mokahr.com:${HTTP_PORT}/test-pages/moka-mock.html`);
     await activateAndWait(cdp, mT);
+    const mH = await waitPageReady(cdp, mT, "typeof window.__mokaProbe === 'function'");
     const mDet = await sp.eval('WSA.refresh()');
     report('阶段3: 域名识别 *.mokahr.com → moka', mDet && mDet.platform === 'moka', 'platform=' + (mDet && mDet.platform));
     const mReview = await sp.eval('WSA.autoFill()');
@@ -360,8 +435,9 @@ async function main() {
     await sp.eval(`(() => { const v = ${JSON.stringify(soeVals)}; for (const k in v) WSA.setFieldByKey(k, v[k]); return true; })()`);
     await sp.eval('WSA.save()');
 
-    const iT = await cdp.createTarget(`http://www.iguopin.com:${HTTP_PORT}/test-pages/iguopin-mock.html`);
+    const iT = await cdp.createTarget(`https://www.iguopin.com:${HTTP_PORT}/test-pages/iguopin-mock.html`);
     await activateAndWait(cdp, iT);
+    const iH = await waitPageReady(cdp, iT, "typeof window.__iguopinProbe === 'function'");
     const iDet = await sp.eval('WSA.refresh()');
     report('阶段3: 域名识别 *.iguopin.com → iguopin', iDet && iDet.platform === 'iguopin', 'platform=' + (iDet && iDet.platform));
     const iReview = await sp.eval('WSA.autoFill()');
@@ -381,9 +457,10 @@ async function main() {
     step('restart Edge to verify storage persistence');
     await sp.eval('WSA.save()');
     await sleep(1200);
-    edge.kill();
+    killEdgeTree(edge);
     await sleep(1500);
     killLeftoverEdge(profileDir);
+    freeCdpPorts();
     await sleep(800);
     cdp.ws.close();
     cdp.msgId = 0;
@@ -456,7 +533,7 @@ async function main() {
     const aiErr = await sp2.eval(`sendMessage('wsa:aiChat', {payload:{messages:[{role:'user',content:'hi'}]}})`);
     report('阶段6: 未配置 key 时 AI 调用返回可读错误', aiErr && aiErr.ok === false && /尚未配置/.test(aiErr.error || ''), String(aiErr.error).slice(0, 50));
 
-    const swT2 = await waitFor('SW target (CSV)', () => cdp.list().then((l) => l.find((t) => t.type === 'service_worker')), 10000);
+    const swT2 = await waitFor('SW target (CSV)', () => cdp.list().then((l) => l.find((t) => t.type === 'service_worker' && /\/background\.js$/.test(t.url))), 10000);
     const sw2 = await attachEval(cdp, swT2.id);
     const csvOk = await sw2.eval(`(() => {
       const csv = buildCsv([{ts: Date.now(), company: '测试公司', system: 'moka', url: 'http://app.mokahr.com/x', autoCount: 3, manualCount: 1}]);
@@ -471,14 +548,16 @@ async function main() {
     report('阶段6: 安全红线——填充代码无提交类点击（静态检查）', redline, 'filler.js 静态检查');
   } finally {
     if (!KEEP) {
-      try { edge.kill(); } catch (e) {}
+      killEdgeTree(edge);
       try { httpSrv.kill(); } catch (e) {}
+      try { proxySrv.kill(); } catch (e) {}
       await sleep(800);
       killLeftoverEdge(PROFILE_BASE);
+      freeCdpPorts();
       await sleep(800);
       await cleanupProfile(PROFILE_BASE);
     } else {
-      console.log('\n[--keep] Edge 与本地服务保持运行：CDP=http://127.0.0.1:' + CDP_PORT + '  http=http://127.0.0.1:' + HTTP_PORT);
+      console.log('\n[--keep] Edge 与本地服务保持运行：CDP=http://127.0.0.1:' + CDP_PORT + '  https=http://127.0.0.1:' + HTTP_PORT + '  proxy=127.0.0.1:' + PROXY_PORT);
     }
   }
 

@@ -1,30 +1,14 @@
-// Service Worker：AI 请求代理（只允许智谱一家）、CSV 导出、初始数据、侧边栏开关。
+// Service Worker：AI 请求代理（OpenAI 兼容，多服务商预设）、CSV 导出、初始数据、侧边栏开关。
 'use strict';
 
-importScripts('data/templates.js'); // 模板与档案工厂依赖 WangshenTemplates
+importScripts('data/templates.js'); // 模板 / 档案工厂 / 服务商预设依赖 WangshenTemplates
 
 const ROOT_KEY = 'wangshenAutofill';
 const DEFAULT_TIMEOUT_MS = 30000;
 
-// ============ Provider 抽象（只实现智谱，不做多厂商切换 UI） ============
-const PROVIDERS = {
-  zhipu: {
-    name: '智谱 GLM',
-    endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-    buildHeaders(key) {
-      return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key };
-    },
-    buildBody(req) {
-      return {
-        model: req.model,
-        messages: req.messages,
-        temperature: req.temperature != null ? req.temperature : 0.6,
-        max_tokens: req.maxTokens,
-        stream: false,
-      };
-    },
-  },
-};
+function getProvider(settings) {
+  return WangshenTemplates.PROVIDERS[settings.provider] || WangshenTemplates.PROVIDERS.zhipu;
+}
 
 // ============ 初始数据（工厂在 data/templates.js） ============
 
@@ -40,13 +24,36 @@ async function getState() {
     await chrome.storage.local.set({ [ROOT_KEY]: state });
     return state;
   }
+  let dirty = WangshenTemplates.normalizeSettings(state);
   if (!state.migratedFullFields) {
-    // 老数据升级：合并长短表单为全字段（幂等，与 common.js 同一策略）
+    // 老数据升级：合并长短表单为全字段（幂等）
     (state.profiles || []).forEach((p) => WangshenTemplates.upgradeProfile(p));
     state.migratedFullFields = true;
-    await chrome.storage.local.set({ [ROOT_KEY]: state });
+    dirty = true;
   }
+  if (dirty) await chrome.storage.local.set({ [ROOT_KEY]: state });
   return state;
+}
+
+// 扫描件回退的视觉模型解析：主模型带视觉或用户显式配置了视觉模型才放行
+async function resolveVisionModel() {
+  const state = await getState();
+  const settings = state.settings || {};
+  const provider = getProvider(settings);
+  const vm = settings.visionModel || settings.model || (provider.models[0] || '');
+  const ok =
+    settings.provider === 'custom' ||
+    provider.visionDefault ||
+    !!settings.visionModel ||
+    (provider.visionModels || []).includes(vm);
+  if (!ok) {
+    throw aiError(
+      `该 PDF 是扫描件，需要视觉模型。当前 ${provider.name} 的「${vm}」不支持图片输入。` +
+      `解决办法：设置页把"视觉模型"设为该家的视觉型号（如 ${(provider.visionModels || [])[0] || '对应型号'}），` +
+      `或换带视觉的服务商。不配置也行：对照 PDF 手动录入字段库即可。`
+    );
+  }
+  return vm;
 }
 
 // ============ AI 调用 ============
@@ -60,20 +67,30 @@ function aiError(message, detail) {
 async function callGLM(req) {
   const state = await getState();
   const settings = state.settings || {};
-  const provider = PROVIDERS[settings.provider] || PROVIDERS.zhipu;
-  if (!settings.apiKey) {
-    throw aiError('尚未配置智谱 API Key，请打开设置页填写（模型默认 glm-5.3-flash）。');
+  const provider = getProvider(settings);
+  const key = (settings.apiKeys || {})[settings.provider] || '';
+  if (!key) {
+    throw aiError(`尚未配置 ${provider.name} 的 API Key。不配置 AI 也完全可以使用：在字段库手动录入后一键填充不受影响；如需 PDF 提取/开放题起草，请到设置页填写。`);
   }
-  const model = req.model || settings.model || 'glm-5.3-flash';
+  const model = req.model || settings.model || (provider.models[0] || '');
+  if (!model) throw aiError('请到设置页填写模型 ID。');
+  const baseUrl = ((settings.provider === 'custom' ? settings.customBase : provider.baseUrl) || '').replace(/\/+$/, '');
+  if (!baseUrl) throw aiError('自定义服务商缺少接口地址，请到设置页填写（OpenAI 兼容地址，如 https://xx.com/v1）。');
   const timeoutMs = req.timeoutMs || DEFAULT_TIMEOUT_MS;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res;
   try {
-    res = await fetch(provider.endpoint, {
+    res = await fetch(baseUrl + '/chat/completions', {
       method: 'POST',
-      headers: provider.buildHeaders(settings.apiKey),
-      body: JSON.stringify(provider.buildBody({ ...req, model })),
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
+      body: JSON.stringify({
+        model,
+        messages: req.messages,
+        temperature: req.temperature != null ? req.temperature : 0.6,
+        max_tokens: req.maxTokens,
+        stream: false,
+      }),
       signal: ctrl.signal,
     });
   } catch (err) {
@@ -92,12 +109,12 @@ async function callGLM(req) {
   }
   if (!res.ok) {
     const apiMsg = data && data.error && data.error.message ? data.error.message : '';
-    if (res.status === 401) throw aiError('API Key 无效（401），请到设置页检查是否复制完整。', apiMsg);
-    if (res.status === 429) throw aiError('调用频率/额度受限（429），请稍后再试或检查智谱账户余额。', apiMsg);
-    throw aiError(`智谱接口返回 ${res.status}：${apiMsg || res.statusText}`, apiMsg);
+    if (res.status === 401) throw aiError(`API Key 无效（401），请到设置页检查 ${provider.name} 的 Key 是否复制完整。`, apiMsg);
+    if (res.status === 429) throw aiError('调用频率/额度受限（429），请稍后再试或检查账户余额。', apiMsg);
+    throw aiError(`${provider.name} 接口返回 ${res.status}：${apiMsg || res.statusText}`, apiMsg);
   }
   if (data && data.error) {
-    throw aiError('智谱接口报错：' + (data.error.message || JSON.stringify(data.error)));
+    throw aiError(provider.name + ' 接口报错：' + (data.error.message || JSON.stringify(data.error)));
   }
   const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
   if (typeof content !== 'string') {
@@ -196,7 +213,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const payload = msg.payload || {};
           let content;
           if (Array.isArray(payload.pages) && payload.pages.length) {
-            content = await visionExtract(payload.pages);
+            content = await visionExtract(payload.pages, await resolveVisionModel());
           } else {
             const out = await callGLM({ messages: payload.messages, temperature: 0.2, timeoutMs: 120000, maxTokens: 4096 });
             content = out.content;
@@ -233,7 +250,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 // 视觉模式：每页一条消息（含 PNG base64），顺序调用后合并
-async function visionExtract(pages) {
+async function visionExtract(pages, visionModel) {
   const merged = {};
   const schemaPrompt =
     '你是简历信息抽取助手。请从这一页简历图片中提取信息，只输出一个 JSON 对象，不要输出任何其他文字。' +
@@ -245,6 +262,7 @@ async function visionExtract(pages) {
     '本页没有的字段省略或留空，不要编造。';
   for (const page of pages) {
     const out = await callGLM({
+      model: visionModel,
       messages: [
         { role: 'user', content: [
           { type: 'image_url', image_url: { url: page.dataUrl } },

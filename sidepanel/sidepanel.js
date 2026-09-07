@@ -148,6 +148,27 @@ function renderFieldsTab() {
   const root = main.fields;
   root.innerHTML = '';
 
+  // 首次使用引导：讲清"不用 AI 也能用"
+  if (!state.onboardingDone) {
+    const b = document.createElement('div');
+    b.className = 'card';
+    b.style.borderColor = '#c7d5ff';
+    b.innerHTML = `
+      <b>👋 两种用法，选适合你的：</b>
+      <div class="muted" style="margin:6px 0 2px">① <b>不用 AI（零配置）</b>：直接在下面分组里把信息填好 → 打开网申页 → 「填充」页点一键填充。</div>
+      <div class="muted" style="margin:0 0 8px">② 用 AI（可选）：右上角 ⚙ 配置任一家 API Key，解锁 PDF 自动提取和开放题起草。</div>`;
+    const ok = document.createElement('button');
+    ok.className = 'btn plain';
+    ok.textContent = '知道了，开始填写';
+    ok.addEventListener('click', () => {
+      state.onboardingDone = true;
+      scheduleSave();
+      renderFieldsTab();
+    });
+    b.appendChild(ok);
+    root.appendChild(b);
+  }
+
   for (const g of groups) {
     const det = document.createElement('details');
     det.className = 'group';
@@ -360,6 +381,20 @@ function renderFillTab() {
       list.appendChild(row);
     }
     autoCard.appendChild(list);
+    if (!fillable.length) {
+      const hint = document.createElement('div');
+      hint.className = 'muted';
+      hint.style.marginTop = '8px';
+      hint.textContent = '档案里还没有可填的值。把信息填进「字段库」后回来点一键填充；AI 相关功能不配置也完全不影响这一步。';
+      const go = document.createElement('button');
+      go.className = 'btn ghost';
+      go.style.marginTop = '6px';
+      go.textContent = '去字段库填写 →';
+      go.addEventListener('click', () => document.querySelector('.tabs button[data-tab="fields"]').click());
+      hint.appendChild(document.createElement('br'));
+      hint.appendChild(go);
+      autoCard.appendChild(hint);
+    }
   } else {
     const d = document.createElement('div');
     d.className = 'muted';
@@ -528,6 +563,14 @@ function openItem(f, prof) {
 }
 
 async function draftOpen(f, btn) {
+  // 未配置 Key：引导而不是报错。不用 AI 的用户直接在预览框手写即可。
+  const curKey = ((state.settings.apiKeys || {})[state.settings.provider || 'zhipu']) || '';
+  if (!curKey) {
+    if (confirm('开放题 AI 起草需要先配置任一家 AI 服务的 Key。\n不配置也完全可以：直接在下方输入框手写答案。\n\n现在去设置页配置吗？')) {
+      chrome.runtime.openOptionsPage();
+    }
+    return;
+  }
   btn.disabled = true;
   btn.textContent = '⏳生成中';
   try {

@@ -12,12 +12,14 @@ async function getState() {
     return fresh;
   }
   const state = obj[ROOT_KEY];
+  let dirty = WangshenTemplates.normalizeSettings(state);
   if (!state.migratedFullFields) {
     // 老数据升级：合并长短表单为全字段，幂等
     (state.profiles || []).forEach((p) => WangshenTemplates.upgradeProfile(p));
     state.migratedFullFields = true;
-    await chrome.storage.local.set({ [ROOT_KEY]: state });
+    dirty = true;
   }
+  if (dirty) await chrome.storage.local.set({ [ROOT_KEY]: state });
   return state;
 }
 
