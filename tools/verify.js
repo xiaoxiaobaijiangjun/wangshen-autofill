@@ -300,7 +300,22 @@ async function main() {
         return null;
       }
     }, 15000);
-    report('阶段0: background service worker 可执行', ver === '1.3.2', 'version=' + ver);
+    report('阶段0: background service worker 可执行', ver === '1.3.3', 'version=' + ver);
+
+    // 真实侧边栏 API 此前从未被验证：确认 sidePanel 存在且 setPanelBehavior 可调用
+    const spApi = await waitFor('sidePanel API', async () => {
+      try {
+        return await swH.eval(`new Promise((res) => {
+          if (!chrome.sidePanel) return res('missing');
+          chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }, () => {
+            res(chrome.runtime.lastError ? 'err:' + chrome.runtime.lastError.message : 'ok');
+          });
+        })`);
+      } catch (e) {
+        return null;
+      }
+    }, 15000);
+    report('阶段0: 真实侧边栏 API 可用（setPanelBehavior 成功）', spApi === 'ok', String(spApi));
 
     // ---------- 阶段 1：字段库 ----------
     step('打开侧边栏页面…');

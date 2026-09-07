@@ -790,6 +790,7 @@ function addLedger({ autoCount, manualCount }) {
     autoCount,
     manualCount,
   });
+  state.ledger = state.ledger.slice(0, 500); // 上限 500 条（保留最新），防 storage 无限膨胀
   scheduleSave();
   renderLedgerTab();
 }
@@ -802,6 +803,7 @@ function bumpManualLedger() {
   } else {
     state.ledger.unshift({ ts: Date.now(), company: inferCompany(), system: detection ? detection.platform : '', url, autoCount: 0, manualCount: 1 });
   }
+  state.ledger = state.ledger.slice(0, 500);
   scheduleSave();
   renderLedgerTab();
 }

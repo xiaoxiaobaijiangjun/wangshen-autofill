@@ -8,13 +8,17 @@
     el.dispatchEvent(new Event(type, { bubbles: true }));
   }
 
-  // 框架兼容赋值：绕过 React 受控组件的 value tracker，再派发 input/change
+  // 框架兼容赋值：绕过 React 受控组件的 value tracker，再派发 input/change。
+  // 同时补 focus/blur：不少真实站点只在 blur 时做格式校验或写入组件 state，
+  // 缺了它会出现"看起来填了、提交时报格式错误"。
   function setValue(el, value) {
     const proto =
       el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    dispatch(el, 'focus');
     Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
     dispatch(el, 'input');
     dispatch(el, 'change');
+    dispatch(el, 'blur');
   }
 
   function norm(s) {
@@ -80,6 +84,7 @@
     }
     dispatch(el, 'input');
     dispatch(el, 'change');
+    dispatch(el, 'blur');
     return { ok: true, actualValue: el.textContent };
   }
 
@@ -125,8 +130,10 @@
 
   function selectOption(el, option) {
     el.value = option.value;
+    dispatch(el, 'focus');
     dispatch(el, 'input');
     dispatch(el, 'change');
+    dispatch(el, 'blur');
     return { ok: true, actualValue: option.textContent.trim() || option.value };
   }
 
