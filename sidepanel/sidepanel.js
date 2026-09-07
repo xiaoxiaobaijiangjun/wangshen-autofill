@@ -56,15 +56,29 @@ async function init() {
     renderAll();
   });
   $('#btnNewProfile').addEventListener('click', onNewProfile);
-  $('#btnRenameProfile').addEventListener('click', onRenameProfile);
-  $('#btnDelProfile').addEventListener('click', onDeleteProfile);
-  $('#btnRevealAll').addEventListener('click', () => {
-    revealAll = !revealAll;
-    $('#btnRevealAll').style.background = revealAll ? 'var(--brand)' : '';
-    $('#btnRevealAll').style.color = revealAll ? '#fff' : '';
-    renderFieldsTab();
-  });
   $('#btnOptions').addEventListener('click', () => chrome.runtime.openOptionsPage());
+
+  // ⋯ 菜单：重命名 / 删除 / 敏感信息显示
+  const moreMenu = $('#moreMenu');
+  $('#btnMore').addEventListener('click', (e) => {
+    e.stopPropagation();
+    updateMenuReveal();
+    moreMenu.hidden = !moreMenu.hidden;
+  });
+  document.addEventListener('click', (e) => {
+    if (!moreMenu.hidden && !e.target.closest('.menu-wrap')) moreMenu.hidden = true;
+  });
+  moreMenu.addEventListener('click', (e) => {
+    const act = e.target.closest('button') && e.target.closest('button').dataset.act;
+    if (!act) return;
+    moreMenu.hidden = true;
+    if (act === 'rename') onRenameProfile();
+    if (act === 'delete') onDeleteProfile();
+    if (act === 'reveal') {
+      revealAll = !revealAll;
+      renderFieldsTab();
+    }
+  });
 
   document.querySelectorAll('.tabs button').forEach((b) => {
     b.addEventListener('click', () => {
@@ -218,7 +232,7 @@ function fieldRow(f) {
   input.dataset.fid = f.fid;
   if (f.sensitive && state.settings.privacyMask && !revealAll && !revealed.has(f.fid) && f.inputType === 'text') {
     input.classList.add('masked');
-    input.placeholder = '••••（点右侧眼睛可见）';
+    input.placeholder = '••••（点眼睛可见）';
   } else if (f.sensitive && f.inputType === 'text') {
     input.placeholder = '敏感字段';
   }
@@ -871,6 +885,11 @@ function renderMaterialsTab() {
 }
 
 // ============ 档案操作 ============
+
+function updateMenuReveal() {
+  const item = document.querySelector('#moreMenu [data-act="reveal"]');
+  if (item) item.textContent = (revealAll ? '✓ ' : '') + '👁 显示全部敏感字段';
+}
 
 function onNewProfile() {
   const name = prompt('新档案名称：', '新档案');

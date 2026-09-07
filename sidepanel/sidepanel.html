@@ -7,15 +7,28 @@
 </head>
 <body>
   <header class="top">
-    <div class="row">
-      <select id="profileSel" title="当前档案"></select>
-      <button id="btnNewProfile" class="icon" title="新建档案">＋</button>
-      <button id="btnRenameProfile" class="icon" title="重命名当前档案">✎</button>
-      <button id="btnDelProfile" class="icon" title="删除当前档案">🗑</button>
+    <div class="brand">
+      <img class="logo" src="../icons/icon32.png" alt="" />
+      <span class="brand-name">网申自动填写助手</span>
       <span class="spacer"></span>
-      <button id="btnRevealAll" class="icon" title="临时显示所有敏感字段（仅本窗口有效）">👁</button>
-      <button id="btnOptions" class="icon" title="设置（API Key / 阈值 / PDF 导入）">⚙</button>
+      <button id="btnOptions" class="pill-btn" title="AI 服务商、简历 PDF 导入、档案备份等设置">⚙ 设置</button>
     </div>
+
+    <div class="prof-row">
+      <span class="prof-label">档案</span>
+      <select id="profileSel" title="切换当前档案（例如：通用版 / 固件版简历）"></select>
+      <button id="btnNewProfile" class="icon-btn" title="新建档案（默认含全部 51 个字段）">＋</button>
+      <div class="menu-wrap">
+        <button id="btnMore" class="icon-btn" title="档案操作：重命名 / 删除 / 敏感信息显示">⋯</button>
+        <div id="moreMenu" class="menu" hidden>
+          <button data-act="rename">✎ 重命名档案</button>
+          <button data-act="delete" class="danger">🗑 删除档案</button>
+          <div class="menu-sep"></div>
+          <button data-act="reveal" title="敏感字段默认显示 ••••，此项可临时全部可见">👁 显示全部敏感字段</button>
+        </div>
+      </div>
+    </div>
+
     <nav class="tabs">
       <button data-tab="fields" class="active">字段库</button>
       <button data-tab="fill">填充</button>

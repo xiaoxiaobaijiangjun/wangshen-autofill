@@ -300,7 +300,7 @@ async function main() {
         return null;
       }
     }, 15000);
-    report('阶段0: background service worker 可执行', ver === '1.3.0', 'version=' + ver);
+    report('阶段0: background service worker 可执行', ver === '1.3.1', 'version=' + ver);
 
     // ---------- 阶段 1：字段库 ----------
     step('打开侧边栏页面…');
