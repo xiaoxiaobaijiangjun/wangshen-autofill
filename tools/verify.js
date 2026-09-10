@@ -300,7 +300,7 @@ async function main() {
         return null;
       }
     }, 15000);
-    report('阶段0: background service worker 可执行', ver === '1.3.3', 'version=' + ver);
+    report('阶段0: background service worker 可执行', ver === '1.3.4', 'version=' + ver);
 
     // 真实侧边栏 API 此前从未被验证：确认 sidePanel 存在且 setPanelBehavior 可调用
     const spApi = await waitFor('sidePanel API', async () => {
@@ -400,6 +400,15 @@ async function main() {
     const rmOk = rmObj.state.name === vals.name && rmObj.state.phone === vals.phone && rmObj.state.city === vals.expectedCity
       && rmObj.state.name === rmObj.dom.name && rmObj.state.phone === rmObj.dom.phone;
     report('阶段2: React 受控组件赋值生效（值保留在组件 state）', rmOk, JSON.stringify(rmObj.state));
+
+    // 误报回归：聊天页孤 textarea 不应被当成开放题（DeepSeek 首页误报修复）
+    step('孤 textarea 误报回归…');
+    const lT = await cdp.createTarget(`https://127.0.0.1:${HTTP_PORT}/test-pages/lonely-textarea.html`);
+    await activateAndWait(cdp, lT);
+    await waitPageReady(cdp, lT, "typeof window.__lonelyProbe === 'function'");
+    const lDet = await sp.eval('WSA.refresh()');
+    const lTotal = lDet ? lDet.counts.auto + lDet.counts.manual + lDet.counts.open : -1;
+    report('阶段2: 聊天页孤 textarea 不误报（0 字段、不弹浮条）', lTotal === 0, `total=${lTotal}`);
 
     // ---------- 阶段 3：平台适配 ----------
     step('Moka mock 页…');

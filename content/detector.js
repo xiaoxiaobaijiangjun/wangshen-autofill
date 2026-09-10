@@ -229,6 +229,7 @@
       } catch (e) { /* 无 fieldset 上下文 */ }
 
       let cls = null; // auto | manual | open | skip
+      let weakOpen = false; // 孤儿 textarea：无任何词典/关键词信号，靠页面上下文决定去留
       let key = match ? match.key : null;
 
       if (ctxLabel) {
@@ -247,7 +248,10 @@
         } else if (isRadioGroup && item.group.type === 'checkbox') {
           cls = 'manual';
         } else if (inputType === 'textarea') {
+          // 孤儿 textarea（聊天框/评论框）：先标记为"弱开放题"，
+          // 只有页面同时存在其他网申字段信号时才保留，否则丢弃（否则 DeepSeek 首页都会误报）
           cls = 'open';
+          weakOpen = true;
         } else {
           continue; // 匹配不上的单行输入不展示，避免噪音
         }
@@ -273,14 +277,20 @@
         entry.options = Array.from(el.options).map((o) => ({ value: o.value, text: o.textContent.trim() }));
       }
       entries.push(entry);
+      entry.weakOpen = weakOpen;
       state.registry.set(entry.id, isRadioGroup ? item.group.els[0] : el);
       if (isRadioGroup) {
         state.registry.set('__radios__' + entry.id, item.group.els);
       }
     }
 
+    // 弱开放题过滤：页面没有其他网申字段信号（可自动填/点选）时，孤儿 textarea 视为
+    // 聊天框/评论框而非开放题，避免在无关网站误报"检测到网申表单"
+    const jobSignal = entries.filter((e) => e.cls === 'auto' || e.cls === 'manual').length;
+    const kept = jobSignal >= 1 ? entries : entries.filter((e) => !e.weakOpen);
+
     // 排序按 DOM 顺序（collect 顺序即文档顺序）
-    state.fields = entries;
+    state.fields = kept;
     state.fileInputs = findFileInputs();
     if (globalThis.WangshenFloatbar) globalThis.WangshenFloatbar.onDetection(state);
     return state;
