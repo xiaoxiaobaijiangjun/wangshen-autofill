@@ -440,7 +440,7 @@
                 continue;
               }
               const radios = getRadioEls(it.id);
-              const r = globalThis.WangshenFiller.fillElement(el, it.value, {
+              const r = await globalThis.WangshenFiller.fillElement(el, it.value, {
                 inputType: it.inputType,
                 options: it.options,
                 radios,

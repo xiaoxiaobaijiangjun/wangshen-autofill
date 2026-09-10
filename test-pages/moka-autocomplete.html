@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Moka 式自动补全组件 Mock</title>
+<style>
+  body { font: 14px/1.6 system-ui, "Microsoft YaHei", sans-serif; max-width: 560px; margin: 40px auto; }
+  .form-item { margin-bottom: 18px; position: relative; }
+  .field-label { display: block; color: #666; font-size: 13px; margin-bottom: 5px; }
+  .moka-select { position: relative; }
+  .moka-input { width: 100%; padding: 8px 28px 8px 12px; border: 1px solid #d8dce6; border-radius: 4px; font: inherit; box-sizing: border-box; }
+  .arrow { position: absolute; right: 10px; top: 8px; color: #999; pointer-events: none; }
+  .moka-dropdown {
+    position: absolute; z-index: 10; left: 0; right: 0; margin: 4px 0 0; padding: 4px 0;
+    background: #fff; border: 1px solid #d8dce6; border-radius: 4px;
+    list-style: none; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  }
+  .moka-dropdown li { padding: 7px 12px; cursor: pointer; }
+  .moka-dropdown li:hover { background: #f0f3ff; }
+</style>
+</head>
+<body>
+<h2>含自动补全组件的申请表（Moka 式）</h2>
+<p>民族/籍贯是"输入+下拉选择"组合：站点 state 只在下拉选项被点击时更新，纯打字无效。</p>
+
+<div class="form-item">
+  <label class="field-label">民族</label>
+  <div class="moka-select">
+    <input class="moka-input" id="ethnicInput" placeholder="请输入民族" autocomplete="off" />
+    <span class="arrow">▾</span>
+    <ul class="moka-dropdown" id="ethnicDrop" hidden></ul>
+  </div>
+</div>
+
+<div class="form-item">
+  <label class="field-label">手机号码</label>
+  <input class="moka-input" id="phoneInput" placeholder="请输入手机号" autocomplete="off" />
+</div>
+
+<div id="result" style="margin-top:20px;color:#555"></div>
+<script>
+  // React 式行为：state 只在"点击下拉选项"时更新；input.value 改变不等于选中
+  const OPTIONS = ['汉族', '蒙古族', '回族', '藏族', '维吾尔族', '苗族', '彝族', '壮族', '满族', '侗族'];
+  const input = document.getElementById('ethnicInput');
+  const drop = document.getElementById('ethnicDrop');
+  const compState = { picked: '' };
+
+  function show(filter) {
+    const f = (filter || '').trim();
+    const list = OPTIONS.filter((o) => !f || o.includes(f));
+    drop.innerHTML = '';
+    list.forEach((o) => {
+      const li = document.createElement('li');
+      li.textContent = o;
+      li.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        compState.picked = o;          // state 只在这里更新
+        input.value = o;
+        drop.hidden = true;
+      });
+      drop.appendChild(li);
+    });
+    drop.hidden = list.length === 0;
+  }
+  input.addEventListener('focus', () => show(input.value));
+  input.addEventListener('input', () => show(input.value));
+  input.addEventListener('blur', () => setTimeout(() => (drop.hidden = true), 150));
+
+  document.getElementById('phoneInput').addEventListener('input', function () {});
+  window.__mokaAutoProbe = () => ({ value: input.value, picked: compState.picked });
+</script>
+</body>
+</html>

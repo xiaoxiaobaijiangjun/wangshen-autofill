@@ -300,7 +300,7 @@ async function main() {
         return null;
       }
     }, 15000);
-    report('阶段0: background service worker 可执行', ver === '1.3.6', 'version=' + ver);
+    report('阶段0: background service worker 可执行', ver === '1.3.7', 'version=' + ver);
 
     // 真实侧边栏 API 此前从未被验证：确认 sidePanel 存在且 setPanelBehavior 可调用
     const spApi = await waitFor('sidePanel API', async () => {
@@ -409,6 +409,23 @@ async function main() {
     const lDet = await sp.eval('WSA.refresh()');
     const lTotal = lDet ? lDet.counts.auto + lDet.counts.manual + lDet.counts.open : -1;
     report('阶段2: 聊天页孤 textarea 不误报（0 字段、不弹浮条）', lTotal === 0, `total=${lTotal}`);
+
+    // 自动补全组件回归：Moka 式"输入+下拉"必须点选项才算填上
+    step('autocomplete 回归…');
+    const aT = await cdp.createTarget(`https://app.mokahr.com:${HTTP_PORT}/test-pages/moka-autocomplete.html`);
+    await activateAndWait(cdp, aT);
+    await waitPageReady(cdp, aT, "typeof window.__mokaAutoProbe === 'function'");
+    await sp.eval(`WSA.setFieldByKey('ethnic', '汉族'); WSA.setFieldByKey('phone', '13800138000'); true`);
+    await sp.eval('WSA.save()');
+    const aDet = await sp.eval('WSA.refresh()');
+    const ethnicField = aDet.fields.find((f) => f.key === 'ethnic');
+    const phoneField = aDet.fields.find((f) => f.key === 'phone');
+    report('阶段2: 自动补全组件被识别为可自动填', !!ethnicField && !!phoneField, `ethnic=${!!ethnicField} phone=${!!phoneField}`);
+    await sp.eval(`WSA.fillOne('${ethnicField.id}', '汉族')`);
+    await sp.eval(`WSA.fillOne('${phoneField.id}', '13800138000')`);
+    await sleep(400);
+    const aProbe = JSON.parse(await (await attachEval(cdp, aT)).eval('JSON.stringify(window.__mokaAutoProbe())'));
+    report('阶段2: 下拉选项被自动点选（state 已更新）', aProbe.picked === '汉族' && aProbe.value === '汉族', JSON.stringify(aProbe));
 
     // 登录页回归：验证码页即使有手机号输入也应抑制全部填充（pageKind=login）
     step('登录页抑制回归…');

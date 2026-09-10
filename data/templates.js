@@ -20,7 +20,7 @@
     return p.indexOf('re:') === 0;
   }
 
-  // 对单个字段组评分：精确=1.0，正则全匹配=0.95，包含=0.75，正则普通命中=0.7
+  // 对单个字段组评分：精确=1.0，正则全匹配=0.95，前缀命中=0.9，包含=0.75，正则普通命中=0.7
   function scoreGroup(normLabel, patterns) {
     let best = 0;
     for (const p of patterns) {
@@ -33,8 +33,10 @@
         }
       } else if (normLabel === p) {
         best = Math.max(best, 1.0);
-      } else if (p.length >= 2 && (normLabel.includes(p) || normLabel.length >= 2 && p.includes(normLabel))) {
-        best = Math.max(best, 0.75);
+      } else if (p.length >= 2 && normLabel.length >= 2 && (normLabel.includes(p) || p.includes(normLabel))) {
+        // 前缀命中（如"出生日期（年龄）"之于"出生日期"、"现居住城市（到地级市）"）
+        // 比普通包含更可信，达到自动填充阈值
+        best = Math.max(best, normLabel.startsWith(p) && p.length >= 4 ? 0.9 : 0.75);
       }
     }
     return best;
@@ -56,7 +58,7 @@
     { key: 'school', patterns: ['毕业院校', '学校', '院校', '毕业学校', '就读院校', '所在学校', 're:school|university|college'] },
     { key: 'major', patterns: ['专业', '所学专业', '专业名称', 're:major'] },
     { key: 'degree', patterns: ['学历', '最高学历', '学历层次', 're:degree|education'] },
-    { key: 'graduationDate', patterns: ['毕业时间', '预计毕业时间', '毕业年月', '毕业日期', 're:graduat'] },
+    { key: 'graduationDate', patterns: ['毕业时间', '预计毕业时间', '毕业年月', '毕业年份', '预计毕业年份', '毕业日期', 're:graduat'] },
     { key: 'gpa', patterns: ['gpa', '绩点', '成绩排名', '平均绩点', 're:gpa|gradepoint'] },
     { key: 'englishLevel', patterns: ['英语水平', '英语能力', '外语水平', 're:english'] },
 
@@ -138,7 +140,7 @@
     { key: 'school', label: '毕业院校', group: '教育背景', inputType: 'text', sensitive: false, autoFill: true, patterns: ['毕业院校', '学校', '院校', '毕业学校', '就读院校', '所在学校', 're:school|university|college'] },
     { key: 'major', label: '专业', group: '教育背景', inputType: 'text', sensitive: false, autoFill: true, patterns: ['专业', '所学专业', '专业名称', 're:major'] },
     { key: 'degree', label: '学历', group: '教育背景', inputType: 'select', options: ['博士', '硕士', '本科', '大专', '其他'], sensitive: false, autoFill: true, patterns: ['学历', '最高学历', '学历层次', 're:degree|education'] },
-    { key: 'graduationDate', label: '毕业时间', group: '教育背景', inputType: 'text', sensitive: false, autoFill: true, patterns: ['毕业时间', '预计毕业时间', '毕业年月', '毕业日期', 're:graduat'] },
+    { key: 'graduationDate', label: '毕业时间', group: '教育背景', inputType: 'text', sensitive: false, autoFill: true, patterns: ['毕业时间', '预计毕业时间', '毕业年月', '毕业年份', '预计毕业年份', '毕业日期', 're:graduat'] },
     { key: 'gpa', label: 'GPA/成绩排名', group: '教育背景', inputType: 'text', sensitive: false, autoFill: true, patterns: ['gpa', '绩点', '成绩排名', '平均绩点', 're:gpa|gradepoint'] },
     { key: 'englishLevel', label: '英语水平', group: '教育背景', inputType: 'text', sensitive: false, autoFill: true, patterns: ['英语水平', '英语能力', '外语水平', 're:english'] },
     { key: 'expectedPosition', label: '应聘岗位', group: '求职意向', inputType: 'text', sensitive: false, autoFill: true, patterns: ['应聘岗位', '期望岗位', '求职岗位', '应聘职位', '期望职位', '意向岗位', '意向职位', 're:position|expectedjob|expectedrole'] },

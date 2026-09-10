@@ -8,6 +8,16 @@
     el.dispatchEvent(new Event(type, { bubbles: true }));
   }
 
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function isVisible(el) {
+    if (!el || !el.getClientRects().length) return false;
+    const style = getComputedStyle(el);
+    if (style.visibility === 'hidden' || style.display === 'none' || Number(style.opacity) === 0) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
   // 框架兼容赋值：绕过 React 受控组件的 value tracker，再派发 input/change。
   // 同时补 focus/blur：不少真实站点只在 blur 时做格式校验或写入组件 state，
   // 缺了它会出现"看起来填了、提交时报格式错误"。
@@ -176,7 +186,52 @@
     return { ok: target.checked === checked, actualValue: checked ? '勾选' : '取消勾选' };
   }
 
-  function fillElement(el, value, ctx) {
+  // 自动补全组件适配（Moka 等）：民族/籍贯/学校/专业是"输入+下拉选择"组合，
+  // 只打字不点选项时站点 state 不更新，提交时仍报必填未填。
+  // 策略：填入文本后等下拉选项渲染，自动匹配并点击正确选项；无下拉则快速跳过。
+  async function pickDropdownOption(el, value) {
+    const want = norm(value);
+    if (!want) return { picked: false };
+    for (let i = 0; i < 5; i++) {
+      await sleep(90);
+      const opts = findOptions(el, want);
+      if (opts.length) {
+        const opt = opts[0];
+        const text = (opt.textContent || '').trim();
+        ['mousedown', 'mouseup', 'click'].forEach((type) => {
+          opt.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+        });
+        return { picked: true, text };
+      }
+    }
+    return { picked: false };
+  }
+
+  function findOptions(el, want) {
+    const scopes = [];
+    const item = el.closest('[class*="form-item"], [class*="form-group"], [class*="field"], [class*="select"], li, td');
+    if (item) scopes.push(item);
+    scopes.push(document.body); // 不少组件把下拉面板挂在 body 末尾（portal）
+    const seen = new Set();
+    const out = [];
+    for (const scope of scopes) {
+      scope.querySelectorAll('li, [class*="option"], [class*="Option"], [class*="menu-item"], [class*="item"]').forEach((o) => {
+        if (seen.has(o) || o.contains(el) || el.contains(o)) return;
+        if (!isVisible(o)) return;
+        const text = (o.textContent || '').trim();
+        if (!text || text.length > 30) return;
+        const n = norm(text);
+        if (n === want || (n && (n.includes(want) || want.includes(n)))) {
+          seen.add(o);
+          out.push(o);
+        }
+      });
+      if (out.length) return out; // 就近优先：字段附近找到就不再扫 body
+    }
+    return out;
+  }
+
+  async function fillElement(el, value, ctx) {
     ctx = ctx || {};
     if (!el) return { ok: false, reason: '元素不存在' };
     const kind = ctx.inputType || (el.tagName === 'TEXTAREA' ? 'textarea' : el.tagName === 'SELECT' ? 'select' : (el.getAttribute('type') || 'text').toLowerCase());
@@ -188,7 +243,13 @@
     if (kind === 'checkbox') return fillCheckbox(ctx.radios, value);
     if (kind === 'select' || el.tagName === 'SELECT') return fillSelect(el, value, ctx.options);
     if (el.isContentEditable) return fillContentEditable(el, value);
-    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return fillText(el, value);
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      const r = fillText(el, value);
+      if (!r.ok) return r;
+      const pick = await pickDropdownOption(el, value);
+      if (pick.picked) return { ok: true, actualValue: pick.text };
+      return r;
+    }
     return { ok: false, reason: '不支持的控件类型' };
   }
 
