@@ -403,6 +403,26 @@ function renderFillTab() {
       </div>
       <div class="muted">可自动填 <b>${c.auto}</b> 项 · 点选 <b>${c.manual}</b> 项 · 开放题 <b>${c.open}</b> 题</div>
     `;
+    // 识别效果异常时的远程排查入口：把每字段的标签查找结果复制成 JSON
+    const dbg = document.createElement('button');
+    dbg.className = 'btn ghost';
+    dbg.id = 'btnDebug';
+    dbg.style.marginTop = '6px';
+    dbg.textContent = '🩺 复制诊断信息';
+    dbg.title = '本页识别不到/识别错了？点这里复制诊断数据，粘贴发给开发者排查';
+    dbg.addEventListener('click', async () => {
+      dbg.disabled = true;
+      try {
+        const res = await sendToTab(detectionTabId, 'wsa:debugDump');
+        if (!res.ok) throw new Error(res.error || '页面无响应');
+        await navigator.clipboard.writeText(JSON.stringify(res.dump, null, 1));
+        dbg.textContent = '✓ 已复制，粘贴发给开发者即可';
+      } catch (e) {
+        dbg.textContent = '✗ 复制失败：' + e.message;
+      }
+      setTimeout(() => { dbg.textContent = '🩺 复制诊断信息'; dbg.disabled = false; }, 4000);
+    });
+    info.appendChild(dbg);
   } else {
     info.innerHTML = '<div class="muted">尚未检测到页面，打开一个网申页试试。</div>';
   }

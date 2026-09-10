@@ -300,7 +300,7 @@ async function main() {
         return null;
       }
     }, 15000);
-    report('阶段0: background service worker 可执行', ver === '1.3.5', 'version=' + ver);
+    report('阶段0: background service worker 可执行', ver === '1.3.6', 'version=' + ver);
 
     // 真实侧边栏 API 此前从未被验证：确认 sidePanel 存在且 setPanelBehavior 可调用
     const spApi = await waitFor('sidePanel API', async () => {

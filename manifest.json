@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "网申自动填写助手",
-  "version": "1.3.5",
+  "version": "1.3.6",
   "description": "简历字段库 + 短字段一键自动填 + 长文本点选填 + AI 开放题起草 + 投递台账。数据只存本机。",
   "minimum_chrome_version": "116",
   "icons": {

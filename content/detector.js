@@ -106,29 +106,62 @@
     // 单选/多选自己的包裹 label（"男/女"这类选项文本）放最后，避免当成字段名
     const wrapLabel = el.closest('label');
     if (wrapLabel) push(wrapLabel.textContent.replace(el.value || '', ''));
-    // 向上找最近容器内的短文本 label（最多 4 层）
+    // 向上找最近容器内的短文本 label（最多 8 层，覆盖 React 深层嵌套）；
+    // 每层同时检查前驱兄弟分支（"标签在左、控件在右"且标签不在控件祖先链上的布局）
     let p = el.parentElement;
-    for (let i = 0; i < 4 && p && p !== document.body; i++) {
+    const before = parts.length;
+    for (let i = 0; i < 8 && p && p !== document.body; i++) {
       const t = labelTextOf(p, el);
-      if (t && t.length <= 30) {
+      if (t && T.normalizeLabel(t) && t.length <= 12) {
         push(t);
         break;
       }
+      let s = p.previousElementSibling;
+      for (let k = 0; s && k < 3; k++) {
+        const st = labelTextOf(s, null) || (s.textContent || '').trim();
+        if (st && T.normalizeLabel(st) && st.length <= 12) {
+          push(st);
+          break;
+        }
+        s = s.previousElementSibling;
+      }
+      if (parts.length > before) break; // 本层找到了
       p = p.parentElement;
     }
     push(el.getAttribute('name'));
+    // 选候选时跳过"归一化后为空"的无用候选（如 placeholder"请输入/请选择"），
+    // 否则它会挡住排在后面的有效标签（北森表单 0 识别的根因）
+    let fallback = '';
     for (const t of parts) {
-      if (t && t.length <= 40) return t;
+      if (!t || t.length > 40) continue;
+      if (!T.normalizeLabel(t)) {
+        if (!fallback) fallback = t; // 全部无效时至少返回原文，便于诊断
+        continue;
+      }
+      return t;
     }
-    return parts[0] || '';
+    return fallback;
   }
 
   // ============ 字段发现 ============
 
   function collectFormControls() {
     const all = document.querySelectorAll('input, textarea, select');
+    let allArr = Array.from(all);
+    // Shadow DOM 兜底：常规查询一个输入框都没有时，深度遍历 open shadow root
+    // （部分框架把整张表单渲染进 web component）。仅在必要时付出遍历整棵 DOM 的开销。
+    if (!allArr.length) {
+      allArr = [];
+      (function deep(root, depth) {
+        if (depth > 8) return;
+        root.querySelectorAll('input, textarea, select').forEach((el) => allArr.push(el));
+        root.querySelectorAll('*').forEach((el) => {
+          if (el.shadowRoot) deep(el.shadowRoot, depth + 1);
+        });
+      })(document.body, 0);
+    }
     const out = [];
-    for (const el of all) {
+    for (const el of allArr) {
       if (inOurUi(el)) continue;
       const type = (el.getAttribute('type') || '').toLowerCase();
       if (el.tagName === 'INPUT') {
@@ -362,6 +395,37 @@
           case 'wsa:redetect': {
             detect();
             sendResponse({ ok: true, state: publicState() });
+            return;
+          }
+          case 'wsa:debugDump': {
+            // 诊断 dump：页面上每个输入控件的标签查找结果，供"识别不到"时远程排查
+            const rows = [];
+            let shadowHosts = 0;
+            document.querySelectorAll('*').forEach((el) => {
+              if (el.shadowRoot) shadowHosts++;
+            });
+            document.querySelectorAll('input, textarea, select').forEach((el) => {
+              if (inOurUi(el)) return;
+              const t = findLabelText(el);
+              const m = t ? T.matchLabel(t) : null;
+              const chain = [];
+              let p = el.parentElement;
+              for (let i = 0; i < 5 && p; i++) {
+                chain.push((p.tagName + '.' + String(p.className || '').slice(0, 60)).slice(0, 80));
+                p = p.parentElement;
+              }
+              rows.push({
+                tag: el.tagName,
+                type: el.getAttribute('type') || '',
+                ph: el.getAttribute('placeholder') || '',
+                labelFound: t,
+                key: m ? m.key : null,
+                score: m ? m.score : 0,
+                cls: el.classList && el.classList.length ? String(el.classList).slice(0, 60) : '',
+                chain,
+              });
+            });
+            sendResponse({ ok: true, dump: { url: location.href, title: document.title, shadowHosts, count: rows.length, rows } });
             return;
           }
           case 'wsa:autofill':
