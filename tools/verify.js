@@ -300,7 +300,7 @@ async function main() {
         return null;
       }
     }, 15000);
-    report('阶段0: background service worker 可执行', ver === '1.3.4', 'version=' + ver);
+    report('阶段0: background service worker 可执行', ver === '1.3.5', 'version=' + ver);
 
     // 真实侧边栏 API 此前从未被验证：确认 sidePanel 存在且 setPanelBehavior 可调用
     const spApi = await waitFor('sidePanel API', async () => {
@@ -409,6 +409,16 @@ async function main() {
     const lDet = await sp.eval('WSA.refresh()');
     const lTotal = lDet ? lDet.counts.auto + lDet.counts.manual + lDet.counts.open : -1;
     report('阶段2: 聊天页孤 textarea 不误报（0 字段、不弹浮条）', lTotal === 0, `total=${lTotal}`);
+
+    // 登录页回归：验证码页即使有手机号输入也应抑制全部填充（pageKind=login）
+    step('登录页抑制回归…');
+    const gT2 = await cdp.createTarget(`https://127.0.0.1:${HTTP_PORT}/test-pages/login-mock.html`);
+    await activateAndWait(cdp, gT2);
+    await waitPageReady(cdp, gT2, "typeof window.__loginProbe === 'function'");
+    const gDet = await sp.eval('WSA.refresh()');
+    const gTotal = gDet ? gDet.counts.auto + gDet.counts.manual + gDet.counts.open : -1;
+    report('阶段2: 登录/验证页识别为 login 并抑制填充', gDet && gDet.pageKind === 'login' && gTotal === 0,
+      `pageKind=${gDet && gDet.pageKind} total=${gTotal}`);
 
     // ---------- 阶段 3：平台适配 ----------
     step('Moka mock 页…');

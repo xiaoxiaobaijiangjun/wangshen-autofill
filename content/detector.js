@@ -12,6 +12,7 @@
     fields: [], // {id,label,key,score,cls,inputType,radioEls?,options?,value?}
     fileInputs: [], // {id,label}
     hasCaptcha: false,
+    pageKind: 'form', // form | login（登录/验证页已抑制填充）
     registry: new Map(), // id -> element（跨代持久；元素仍在文档里就还能填）
   };
 
@@ -215,7 +216,8 @@
       if (inputType === 'select') {
         const texts = Array.from(el.options).map((o) => (o.textContent || '').trim());
         const codeLike = texts.filter((t) => /^\+\d{1,5}$/.test(t) || /\(\s*\+\d{1,5}\s*\)/.test(t));
-        if (texts.length >= 3 && codeLike.length / texts.length >= 0.6) continue;
+        // 区号下拉：哪怕只有 1 个选项（如北森的单独 +86 框）也跳过
+        if (texts.length >= 1 && codeLike.length / texts.length >= 0.6) continue;
         if (/区号|国际区号|国家地区|国家\/地区/.test(norm)) continue;
       }
 
@@ -287,7 +289,20 @@
     // 弱开放题过滤：页面没有其他网申字段信号（可自动填/点选）时，孤儿 textarea 视为
     // 聊天框/评论框而非开放题，避免在无关网站误报"检测到网申表单"
     const jobSignal = entries.filter((e) => e.cls === 'auto' || e.cls === 'manual').length;
-    const kept = jobSignal >= 1 ? entries : entries.filter((e) => !e.weakOpen);
+    let kept = jobSignal >= 1 ? entries : entries.filter((e) => !e.weakOpen);
+
+    // 登录/验证页判定：有验证码控件、且几乎没有其他网申字段（≤2 个自动填、无点选/开放题）
+    // => 这是登录/绑定手机号页而非申请表，停止一切填充（避免在陌生登录页自动填手机号）
+    state.pageKind = 'form';
+    if (state.hasCaptcha) {
+      const a = kept.filter((e) => e.cls === 'auto').length;
+      const m = kept.filter((e) => e.cls === 'manual').length;
+      const o = kept.filter((e) => e.cls === 'open').length;
+      if (a <= 2 && m === 0 && o === 0) {
+        kept = [];
+        state.pageKind = 'login';
+      }
+    }
 
     // 排序按 DOM 顺序（collect 顺序即文档顺序）
     state.fields = kept;
@@ -315,6 +330,7 @@
       title: document.title,
       generation: state.generation,
       hasCaptcha: state.hasCaptcha,
+      pageKind: state.pageKind || 'form',
       fields: state.fields.map((f) => ({
         id: f.id,
         label: f.label,

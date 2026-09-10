@@ -138,10 +138,15 @@ async function refreshDetection() {
       detectionError = '当前页面不是普通网页（如浏览器内页），无法检测表单。';
       return;
     }
-    const res = await sendToTab(tab.id, 'wsa:getState');
+    let res = await sendToTab(tab.id, 'wsa:getState');
+    if (!res.ok) {
+      // 内容脚本缺失（扩展刚重载、页面早于扩展打开等）：自动注入后重试，免去手动刷新
+      const injected = await injectContentScripts(tab.id);
+      if (injected) res = await sendToTab(tab.id, 'wsa:getState');
+    }
     if (!res.ok) {
       detection = null;
-      detectionError = '本页未注入检测脚本（刷新页面后重试）。';
+      detectionError = '本页未能注入检测脚本（自动注入失败），请刷新页面后重试。';
       return;
     }
     if (res.state.url !== lastDetectionUrl) {
@@ -154,6 +159,20 @@ async function refreshDetection() {
   } catch (e) {
     detection = null;
     detectionError = '检测失败：' + e.message;
+  }
+}
+
+// 程序化注入内容脚本（需要 scripting 权限 + 对应 host 权限）
+async function injectContentScripts(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['data/templates.js', 'content/detector.js', 'content/filler.js', 'content/floatbar.js'],
+    });
+    await new Promise((r) => setTimeout(r, 700)); // 等detector完成首次检测
+    return true;
+  } catch (e) {
+    return false;
   }
 }
 
@@ -395,6 +414,14 @@ function renderFillTab() {
     const b = document.createElement('div');
     b.className = 'banner red';
     b.textContent = '⚠ 检测到验证码类控件，已自动跳过，请手动完成。';
+    root.appendChild(b);
+  }
+
+  // 登录/验证页：插件已主动停用填充
+  if (detection && detection.pageKind === 'login') {
+    const b = document.createElement('div');
+    b.className = 'banner blue';
+    b.textContent = '🔒 这是登录/手机号验证页面，插件已停止填充。完成登录、进入正式申请表页面后再使用。';
     root.appendChild(b);
   }
 
